@@ -1,0 +1,80 @@
+---
+title: "Créditos da Conta"
+description: "Consulta o saldo de créditos, plano atual e uso mensal"
+api: "GET /account/credits"
+---
+
+Retorna o saldo de créditos disponíveis, o plano atual da conta, seus limites e o consumo de créditos no mês corrente (apenas jobs `completed`).
+
+## Autenticação
+
+Requer `access_token` (cookie) ou `Authorization: Bearer <api_key>`.
+
+## Resposta
+
+<ResponseField name="credits_remaining" type="number">
+  Créditos disponíveis na conta neste momento.
+</ResponseField>
+
+<ResponseField name="plan" type="string">
+  Plano atual: `free`, `pro` ou `enterprise`.
+</ResponseField>
+
+<ResponseField name="plan_limits" type="object">
+  Limites do plano.
+
+  <Expandable title="plan_limits">
+    <ResponseField name="max_numbers_per_job" type="integer">
+      Máximo de números por job.
+    </ResponseField>
+    <ResponseField name="max_api_keys" type="integer">
+      Máximo de API Keys ativas.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="usage_this_month" type="number">
+  Créditos consumidos em jobs concluídos no mês corrente (custo real, não estimado).
+</ResponseField>
+
+<RequestExample>
+
+```bash cURL
+curl https://foneclear-web-production.up.railway.app/api/v1/account/credits \
+  -b cookies.txt
+```
+
+```bash cURL — API Key
+curl https://foneclear-web-production.up.railway.app/api/v1/account/credits \
+  -H "Authorization: Bearer vn_sk_live_a1b2c3d4e5f67890"
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200 OK — plano Free
+{
+  "credits_remaining": 482,
+  "plan":              "free",
+  "plan_limits": {
+    "max_numbers_per_job": 1000,
+    "max_api_keys":        5
+  },
+  "usage_this_month": 18
+}
+```
+
+```json 200 OK — plano Pro
+{
+  "credits_remaining": 47823,
+  "plan":              "pro",
+  "plan_limits": {
+    "max_numbers_per_job": 50000,
+    "max_api_keys":        20
+  },
+  "usage_this_month": 2177
+}
+```
+
+</ResponseExample>

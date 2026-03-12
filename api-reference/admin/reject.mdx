@@ -1,0 +1,101 @@
+---
+title: "Rejeitar Job (Admin)"
+description: "Rejeita um job pendente sem processar, sem débito de créditos"
+api: "POST /admin/jobs/{job_id}/reject"
+---
+
+Rejeita um job com status `pending_approval`. Ao rejeitar:
+
+1. O job muda para status `cancelled`
+2. **Nenhum crédito é debitado** (créditos nunca foram debitados em `pending_approval`)
+3. O motivo de rejeição é registrado no campo `rejection_reason`
+
+Requer `role: admin`.
+
+## Autenticação
+
+Requer autenticação com **role admin**.
+
+## Path Parameters
+
+<ParamField path="job_id" type="string" required>
+  UUID do job a rejeitar.
+</ParamField>
+
+## Body
+
+<ParamField body="reason" type="string">
+  Motivo da rejeição (opcional, mas recomendado). Se omitido, o padrão é `"Rejeitado pelo administrador."`. Máximo recomendado: 500 caracteres.
+</ParamField>
+
+## Resposta
+
+<ResponseField name="message" type="string">
+  Confirmação: `"Job rejeitado."`
+</ResponseField>
+
+<ResponseField name="job" type="object">
+  Dados completos do job após rejeição (status = `cancelled`, `rejection_reason` preenchido).
+</ResponseField>
+
+<RequestExample>
+
+```bash cURL
+curl -X POST https://foneclear-web-production.up.railway.app/api/v1/admin/jobs/f47ac10b-58cc-4372-a567-0e02b2c3d479/reject \
+  -b cookies.txt \
+  -H "Content-Type: application/json" \
+  -d '{"reason": "Arquivo contém dados suspeitos. Por favor, revise e reenvie."}'
+```
+
+```bash cURL — sem motivo (usa padrão)
+curl -X POST https://foneclear-web-production.up.railway.app/api/v1/admin/jobs/f47ac10b-58cc-4372-a567-0e02b2c3d479/reject \
+  -b cookies.txt
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200 OK
+{
+  "message": "Job rejeitado.",
+  "job": {
+    "id":               "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "account_id":       "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "status":           "cancelled",
+    "modules":          ["FORMATO", "TIPO_LINHA", "REASSOCIADO"],
+    "total_numbers":    5000,
+    "processed_count":  0,
+    "estimated_cost":   75.0,
+    "actual_cost":      null,
+    "approved_by":      "adm1n-uuid-00000-000000000000",
+    "approved_at":      "2026-03-11T16:05:00Z",
+    "rejection_reason": "Arquivo contém dados suspeitos. Por favor, revise e reenvie.",
+    "created_at":       "2026-03-11T15:30:00Z",
+    "completed_at":     "2026-03-11T16:05:00Z"
+  }
+}
+```
+
+```json 400 Job não está pending_approval
+{
+  "error":   "invalid_status",
+  "message": "Job está com status 'completed', não pode ser rejeitado."
+}
+```
+
+```json 404 Job não encontrado
+{
+  "error":   "not_found",
+  "message": "Job não encontrado."
+}
+```
+
+```json 403 Sem permissão
+{
+  "error":   "forbidden",
+  "message": "Permissão insuficiente. Esta operação requer role admin."
+}
+```
+
+</ResponseExample>

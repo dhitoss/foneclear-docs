@@ -1,0 +1,216 @@
+---
+title: "Criar Job"
+description: "Submete um arquivo CSV ou XLSX para validação em lote"
+api: "POST /jobs"
+---
+
+Cria e enfileira um job de validação de números telefônicos. Aceita `multipart/form-data` (upload de arquivo) ou `application/json` (referência a arquivo já armazenado).
+
+O job é criado com status **`pending_approval`** e aguarda aprovação de um administrador antes de ser processado. Créditos **não são debitados** até a aprovação.
+
+## Autenticação
+
+Requer `access_token` (cookie) ou `Authorization: Bearer <api_key>`.
+
+## Body — multipart/form-data (recomendado)
+
+<ParamField body="file" type="file" required>
+  Arquivo CSV ou XLSX com os números a validar. Máximo **50 MB**.
+</ParamField>
+
+<ParamField body="modules" type="string" required>
+  Módulos a executar. Pode ser uma string com vírgulas (`"FORMATO,TIPO_LINHA"`) ou um array JSON (`["FORMATO","TIPO_LINHA"]`).
+
+  Valores aceitos: `FORMATO`, `TIPO_LINHA`, `OPERADORA`, `REASSOCIADO`, `PRESENCA_HUMANA`.
+
+  O módulo `FORMATO` é sempre incluído automaticamente.
+</ParamField>
+
+<ParamField body="phone_column" type="string">
+  Nome da coluna que contém os números. Se omitido, o sistema tenta detectar automaticamente (procura colunas com nomes como `telefone`, `celular`, `phone`, `numero`, etc.).
+</ParamField>
+
+<ParamField body="country_code" type="string" default="BR">
+  Código do país para validação de formato. Padrão: `BR`.
+</ParamField>
+
+<ParamField body="callback_url" type="string">
+  URL que receberá um POST quando o job for concluído. Veja [Webhooks](/api-reference/webhooks/overview).
+</ParamField>
+
+## Body — application/json (arquivo pré-armazenado)
+
+<ParamField body="file_path" type="string" required>
+  Caminho ou URL do arquivo já armazenado (uso interno/programático).
+</ParamField>
+
+<ParamField body="modules" type="array" required>
+  Array de strings com os módulos a executar.
+</ParamField>
+
+<ParamField body="phone_column" type="string">
+  Nome da coluna de telefone.
+</ParamField>
+
+<ParamField body="country_code" type="string" default="BR">
+  Código do país.
+</ParamField>
+
+<ParamField body="callback_url" type="string">
+  URL de callback.
+</ParamField>
+
+## Resposta
+
+<ResponseField name="id" type="string">
+  UUID do job criado. Use para consultar status e resultado.
+</ResponseField>
+
+<ResponseField name="account_id" type="string">
+  UUID da conta proprietária do job.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Status inicial: sempre `pending_approval`.
+</ResponseField>
+
+<ResponseField name="modules" type="array">
+  Lista de módulos que serão executados (inclui `FORMATO` automaticamente).
+</ResponseField>
+
+<ResponseField name="total_numbers" type="integer">
+  Total de números únicos encontrados no arquivo.
+</ResponseField>
+
+<ResponseField name="processed_count" type="integer">
+  Números já processados (0 no momento da criação).
+</ResponseField>
+
+<ResponseField name="estimated_cost" type="number">
+  Custo estimado em créditos.
+</ResponseField>
+
+<ResponseField name="estimated_cost_brl" type="number">
+  Custo estimado em BRL (referência: 1 crédito = R$0,005).
+</ResponseField>
+
+<ResponseField name="phone_column" type="string">
+  Nome da coluna de telefone detectada ou informada.
+</ResponseField>
+
+<ResponseField name="country_code" type="string">
+  Código do país.
+</ResponseField>
+
+<ResponseField name="callback_url" type="string">
+  URL de callback configurada (ou `null`).
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  Timestamp ISO 8601 de criação.
+</ResponseField>
+
+<RequestExample>
+
+```bash cURL — upload de arquivo
+curl -X POST https://foneclear-web-production.up.railway.app/api/v1/jobs \
+  -b cookies.txt \
+  -F "file=@numeros.csv" \
+  -F "modules=FORMATO,TIPO_LINHA,OPERADORA" \
+  -F "phone_column=telefone" \
+  -F "country_code=BR" \
+  -F "callback_url=https://meusite.com.br/webhook/foneclear"
+```
+
+```bash cURL — API Key
+curl -X POST https://foneclear-web-production.up.railway.app/api/v1/jobs \
+  -H "Authorization: Bearer vn_sk_live_a1b2c3d4e5f67890" \
+  -F "file=@numeros.csv" \
+  -F "modules=FORMATO,TIPO_LINHA,REASSOCIADO"
+```
+
+```python Python
+import httpx
+
+with open("numeros.csv", "rb") as f:
+    r = httpx.post(
+        "https://foneclear-web-production.up.railway.app/api/v1/jobs",
+        headers={"Authorization": "Bearer vn_sk_live_a1b2c3d4e5f67890"},
+        files={"file": ("numeros.csv", f, "text/csv")},
+        data={
+            "modules":      "FORMATO,TIPO_LINHA,OPERADORA",
+            "phone_column": "telefone",
+            "country_code": "BR",
+        },
+    )
+print(r.json())
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 202 Accepted
+{
+  "id":                  "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "account_id":          "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "status":              "pending_approval",
+  "modules":             ["FORMATO", "TIPO_LINHA", "OPERADORA"],
+  "total_numbers":       1500,
+  "processed_count":     0,
+  "valid_count":         0,
+  "source_file_url":     "s3://foneclear/uploads/numeros.csv",
+  "result_file_url":     null,
+  "callback_url":        "https://meusite.com.br/webhook/foneclear",
+  "phone_column":        "telefone",
+  "country_code":        "BR",
+  "estimated_cost":      7.5,
+  "estimated_cost_brl":  0.04,
+  "actual_cost":         null,
+  "error_message":       null,
+  "approved_by":         null,
+  "approved_at":         null,
+  "rejection_reason":    null,
+  "created_at":          "2026-03-11T14:00:00Z",
+  "started_at":          null,
+  "completed_at":        null
+}
+```
+
+```json 400 Módulo inválido
+{
+  "error":   "invalid_module",
+  "message": "Módulo 'WHATSAPP_PLUS' não reconhecido. Módulos válidos: FORMATO, TIPO_LINHA, OPERADORA, REASSOCIADO, PRESENCA_HUMANA."
+}
+```
+
+```json 400 Excede limite do plano
+{
+  "error":   "exceeds_plan_limit",
+  "message": "Plano free permite até 1.000 números por job.",
+  "details": {
+    "limit":     1000,
+    "requested": 1500
+  }
+}
+```
+
+```json 402 Créditos insuficientes
+{
+  "error":   "insufficient_credits",
+  "message": "Créditos insuficientes. Necessário: 7.5, disponível: 2.0.",
+  "details": {
+    "required":  7.5,
+    "available": 2.0
+  }
+}
+```
+
+```json 422 Arquivo sem números
+{
+  "error":   "empty_file",
+  "message": "Nenhum número encontrado no arquivo."
+}
+```
+
+</ResponseExample>

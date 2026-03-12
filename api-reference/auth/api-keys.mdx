@@ -1,0 +1,185 @@
+---
+title: "API Keys"
+description: "Criar, listar e revogar chaves de API para acesso programático"
+---
+
+As API Keys permitem autenticação programática sem precisar de cookies ou refresh de tokens. São ideais para integrações, scripts e pipelines de produção.
+
+## Formato das chaves
+
+```
+vn_sk_live_<16 caracteres hexadecimais>
+```
+
+<Warning>
+  A chave completa é exibida **apenas uma vez** na criação. O banco de dados armazena somente o hash SHA-256. Guarde a chave imediatamente em um local seguro.
+</Warning>
+
+---
+
+## Criar API Key
+
+<api>POST /auth/api-keys</api>
+
+Requer autenticação com **role admin**.
+
+### Body
+
+<ParamField body="label" type="string">
+  Nome amigável para identificar a chave (opcional). Máximo 100 caracteres.
+  Exemplo: `"Pipeline de produção"`, `"Script de importação"`.
+</ParamField>
+
+### Resposta
+
+<ResponseField name="id" type="string">
+  UUID da API Key criada.
+</ResponseField>
+
+<ResponseField name="key" type="string">
+  A chave completa. **Exibida apenas nesta resposta.**
+</ResponseField>
+
+<ResponseField name="prefix" type="string">
+  Prefixo da chave (`vn_sk_live_`), armazenado no banco para lookup.
+</ResponseField>
+
+<ResponseField name="label" type="string">
+  Rótulo informado (ou `null` se não fornecido).
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  Timestamp ISO 8601 de criação.
+</ResponseField>
+
+<RequestExample>
+
+```bash cURL
+curl -X POST https://foneclear-web-production.up.railway.app/api/v1/auth/api-keys \
+  -b cookies.txt \
+  -H "Content-Type: application/json" \
+  -d '{"label": "Pipeline de produção"}'
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 201 Created
+{
+  "id":         "c3d4e5f6-a7b8-9012-cdef-012345678901",
+  "key":        "vn_sk_live_a1b2c3d4e5f67890",
+  "prefix":     "vn_sk_live_",
+  "label":      "Pipeline de produção",
+  "created_at": "2026-03-11T14:00:00Z"
+}
+```
+
+```json 409 Limite atingido
+{
+  "error":   "api_key_limit_reached",
+  "message": "Limite de 5 chaves ativas atingido para o plano free."
+}
+```
+
+</ResponseExample>
+
+---
+
+## Listar API Keys
+
+<api>GET /auth/api-keys</api>
+
+Requer autenticação (`admin` ou `member`). Nunca retorna o valor completo das chaves.
+
+### Resposta
+
+Array de objetos com:
+
+<ResponseField name="id" type="string">UUID da chave.</ResponseField>
+<ResponseField name="prefix" type="string">Prefixo visível (`vn_sk_live_`).</ResponseField>
+<ResponseField name="label" type="string">Rótulo amigável ou `null`.</ResponseField>
+<ResponseField name="created_at" type="string">Data de criação (ISO 8601).</ResponseField>
+<ResponseField name="last_used_at" type="string">Último uso ou `null` se nunca usada.</ResponseField>
+<ResponseField name="revoked_at" type="string">Data de revogação ou `null` se ativa.</ResponseField>
+
+<RequestExample>
+
+```bash cURL
+curl https://foneclear-web-production.up.railway.app/api/v1/auth/api-keys \
+  -b cookies.txt
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200 OK
+[
+  {
+    "id":           "c3d4e5f6-a7b8-9012-cdef-012345678901",
+    "prefix":       "vn_sk_live_",
+    "label":        "Pipeline de produção",
+    "created_at":   "2026-03-11T14:00:00Z",
+    "last_used_at": "2026-03-11T16:30:00Z",
+    "revoked_at":   null
+  },
+  {
+    "id":           "d4e5f6a7-b8c9-0123-def0-123456789012",
+    "prefix":       "vn_sk_live_",
+    "label":        "Teste local",
+    "created_at":   "2026-03-10T10:00:00Z",
+    "last_used_at": null,
+    "revoked_at":   "2026-03-10T12:00:00Z"
+  }
+]
+```
+
+</ResponseExample>
+
+---
+
+## Revogar API Key
+
+<api>DELETE /auth/api-keys/{key_id}</api>
+
+Requer autenticação com **role admin**. Define `revoked_at` na chave — ela deixa de funcionar imediatamente. Operação irreversível.
+
+### Path Parameters
+
+<ParamField path="key_id" type="string" required>
+  UUID da API Key a ser revogada.
+</ParamField>
+
+<RequestExample>
+
+```bash cURL
+curl -X DELETE https://foneclear-web-production.up.railway.app/api/v1/auth/api-keys/c3d4e5f6-a7b8-9012-cdef-012345678901 \
+  -b cookies.txt
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200 OK
+{
+  "message": "Chave de API revogada com sucesso."
+}
+```
+
+```json 404 Não encontrada
+{
+  "error":   "not_found",
+  "message": "Chave de API não encontrada."
+}
+```
+
+```json 409 Já revogada
+{
+  "error":   "api_key_already_revoked",
+  "message": "Chave de API já foi revogada."
+}
+```
+
+</ResponseExample>

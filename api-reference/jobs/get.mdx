@@ -1,0 +1,155 @@
+---
+title: "Consultar Job"
+description: "Retorna os detalhes, status e (quando concluído) sumário e URL de download de um job"
+api: "GET /jobs/{job_id}"
+---
+
+Retorna todos os detalhes de um job específico. Quando o job está **`completed`**, a resposta inclui:
+- `summary` — contagem por categoria
+- `download_url` — URL pré-assinada para download do CSV (válida por 1 hora)
+- `amd_pending_count` — números pendentes de verificação AMD (se aplicável)
+
+## Autenticação
+
+Requer `access_token` (cookie) ou `Authorization: Bearer <api_key>`. O job deve pertencer à conta autenticada.
+
+## Path Parameters
+
+<ParamField path="job_id" type="string" required>
+  UUID do job a consultar.
+</ParamField>
+
+## Resposta
+
+<ResponseField name="id" type="string">UUID do job.</ResponseField>
+<ResponseField name="account_id" type="string">UUID da conta proprietária.</ResponseField>
+<ResponseField name="status" type="string">
+  Status atual: `pending_approval`, `queued`, `processing`, `completed`, `failed` ou `cancelled`.
+</ResponseField>
+<ResponseField name="modules" type="array">Módulos executados.</ResponseField>
+<ResponseField name="total_numbers" type="integer">Total de números no arquivo.</ResponseField>
+<ResponseField name="processed_count" type="integer">Números já processados.</ResponseField>
+<ResponseField name="valid_count" type="integer">Números com formato válido.</ResponseField>
+<ResponseField name="source_file_url" type="string">URL do arquivo original no storage.</ResponseField>
+<ResponseField name="result_file_url" type="string">URL do arquivo de resultado (ou `null`).</ResponseField>
+<ResponseField name="callback_url" type="string">URL de callback (ou `null`).</ResponseField>
+<ResponseField name="phone_column" type="string">Coluna de telefone detectada.</ResponseField>
+<ResponseField name="country_code" type="string">Código do país.</ResponseField>
+<ResponseField name="estimated_cost" type="number">Custo estimado em créditos.</ResponseField>
+<ResponseField name="actual_cost" type="number">Custo real (ou `null` se não concluído).</ResponseField>
+<ResponseField name="estimated_cost_brl" type="number">Custo estimado em BRL.</ResponseField>
+<ResponseField name="actual_cost_brl" type="number">Custo real em BRL.</ResponseField>
+<ResponseField name="error_message" type="string">Mensagem de erro (apenas quando `status == "failed"`).</ResponseField>
+<ResponseField name="approved_by" type="string">UUID do admin que aprovou (ou `null`).</ResponseField>
+<ResponseField name="approved_at" type="string">Timestamp de aprovação (ou `null`).</ResponseField>
+<ResponseField name="rejection_reason" type="string">Motivo de rejeição (ou `null`).</ResponseField>
+<ResponseField name="created_at" type="string">Timestamp de criação.</ResponseField>
+<ResponseField name="started_at" type="string">Timestamp de início do processamento.</ResponseField>
+<ResponseField name="completed_at" type="string">Timestamp de conclusão.</ResponseField>
+
+**Campos adicionais quando `status == "completed"`:**
+
+<ResponseField name="summary" type="object">
+  Contagem por categoria. Chaves são as categorias (ex: `VALIDO_MOVEL`), valores são as contagens.
+</ResponseField>
+
+<ResponseField name="download_url" type="string">
+  URL pré-assinada para download do CSV de resultado. Válida por **1 hora**.
+</ResponseField>
+
+<ResponseField name="amd_pending_count" type="integer">
+  Número de validações com `amd_result: "pending"` (fora da janela de horário AMD). Presente apenas se > 0.
+</ResponseField>
+
+<RequestExample>
+
+```bash cURL
+curl https://foneclear-web-production.up.railway.app/api/v1/jobs/f47ac10b-58cc-4372-a567-0e02b2c3d479 \
+  -b cookies.txt
+```
+
+```python Python — polling até conclusão
+import httpx, time
+
+job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+headers = {"Authorization": "Bearer vn_sk_live_a1b2c3d4e5f67890"}
+
+while True:
+    r = httpx.get(
+        f"https://foneclear-web-production.up.railway.app/api/v1/jobs/{job_id}",
+        headers=headers,
+    )
+    job = r.json()
+
+    print(f"Status: {job['status']} — {job['processed_count']}/{job['total_numbers']}")
+
+    if job["status"] in ("completed", "failed", "cancelled"):
+        break
+
+    time.sleep(5)
+
+if job["status"] == "completed":
+    print("Download URL:", job["download_url"])
+    print("Sumário:", job["summary"])
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200 OK — em processamento
+{
+  "id":              "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "account_id":      "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "status":          "processing",
+  "modules":         ["FORMATO", "TIPO_LINHA", "OPERADORA"],
+  "total_numbers":   1500,
+  "processed_count": 750,
+  "valid_count":     620,
+  "estimated_cost":  7.5,
+  "actual_cost":     null,
+  "created_at":      "2026-03-11T14:00:00Z",
+  "started_at":      "2026-03-11T14:02:10Z",
+  "completed_at":    null
+}
+```
+
+```json 200 OK — concluído
+{
+  "id":                 "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "account_id":         "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "status":             "completed",
+  "modules":            ["FORMATO", "TIPO_LINHA", "OPERADORA"],
+  "total_numbers":      1500,
+  "processed_count":    1500,
+  "valid_count":        1287,
+  "country_code":       "BR",
+  "estimated_cost":     7.5,
+  "actual_cost":        7.2,
+  "estimated_cost_brl": 0.04,
+  "actual_cost_brl":    0.04,
+  "error_message":      null,
+  "approved_by":        "adm1n-uuid-here",
+  "approved_at":        "2026-03-11T14:01:00Z",
+  "rejection_reason":   null,
+  "created_at":         "2026-03-11T14:00:00Z",
+  "started_at":         "2026-03-11T14:02:10Z",
+  "completed_at":       "2026-03-11T14:05:33Z",
+  "summary": {
+    "VALIDO_MOVEL":      1042,
+    "VALIDO_FIXO":        180,
+    "VALIDO_VOIP":         65,
+    "INVALIDO":           213
+  },
+  "download_url": "https://f9a892ce766c3407f91e7dadc4f4814c.r2.cloudflarestorage.com/foneclear/results/f47ac10b.csv?X-Amz-Signature=..."
+}
+```
+
+```json 404 Job não encontrado
+{
+  "error":   "not_found",
+  "message": "Job não encontrado."
+}
+```
+
+</ResponseExample>

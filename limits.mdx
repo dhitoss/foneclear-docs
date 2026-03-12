@@ -1,0 +1,144 @@
+---
+title: "Limites e Regras de Negócio"
+description: "Rate limits, limites por plano, janelas de horário e regras de compliance"
+icon: "gauge"
+---
+
+## Limites por plano
+
+| Limite | Free | Pro | Enterprise |
+|--------|------|-----|------------|
+| Números por job | 1.000 | 50.000 | Ilimitado |
+| Créditos iniciais | 500 | 50.000 | Negociável |
+| API Keys ativas | 5 | 20 | Ilimitado |
+| Rate limit por API Key | 100 req/min | 100 req/min | Configurável |
+| Rate limit por conta | 1.000 req/min | 1.000 req/min | Configurável |
+
+---
+
+## Tamanho máximo de arquivo
+
+| Limite | Valor |
+|--------|-------|
+| Tamanho máximo por upload | **50 MB** |
+| Formatos aceitos | CSV, XLSX |
+| Codificação CSV | UTF-8 (recomendado) ou Latin-1 |
+
+Se o arquivo exceder 50 MB, a API retorna `413 Request Entity Too Large` antes de persistir o arquivo.
+
+---
+
+## Créditos
+
+O sistema de créditos é a unidade de cobrança do Foneclear.
+
+| Referência | Valor |
+|------------|-------|
+| 1 crédito em USD | $0.001 |
+| 1 crédito em BRL (referência) | R$0.005 |
+| Créditos iniciais (Free) | 500 |
+
+**Custo em créditos por módulo:**
+
+| Módulo | Créditos por número |
+|--------|---------------------|
+| FORMATO | 0 (grátis) |
+| TIPO_LINHA | 5 |
+| OPERADORA | 5 (junto com TIPO_LINHA, não acumulativo) |
+| REASSOCIADO | 10 |
+| PRESENCA_HUMANA | 10–20 |
+
+<Info>
+  Os créditos são **debitados no momento da aprovação** do job pelo administrador, não na criação. Se o job for cancelado antes da aprovação, nenhum crédito é debitado.
+</Info>
+
+---
+
+## Fluxo de aprovação
+
+Por segurança contra abuso, todos os jobs passam por uma etapa de aprovação administrativa:
+
+```
+pending_approval  →  (admin aprova)  →  queued  →  processing  →  completed
+                  →  (admin rejeita) →  cancelled
+```
+
+| Status | Descrição |
+|--------|-----------|
+| `pending_approval` | Aguardando revisão do administrador |
+| `queued` | Aprovado, na fila de processamento |
+| `processing` | Em processamento pelo worker Celery |
+| `completed` | Concluído com sucesso |
+| `failed` | Falhou durante o processamento |
+| `cancelled` | Cancelado (pelo usuário ou admin) |
+
+---
+
+## Regras do módulo PRESENCA_HUMANA
+
+Este módulo realiza chamadas telefônicas reais e está sujeito a restrições operacionais obrigatórias:
+
+### Janela de horário
+
+| Regra | Valor |
+|-------|-------|
+| Horário permitido | 08h00 às 20h00 |
+| Fuso horário | America/Sao_Paulo (BRT/BRST) |
+| Comportamento fora do horário | Número marcado como `amd_result: "pending"` sem custo |
+
+Números marcados como `AMD_PENDENTE` **não geram custo** e são disponibilizados no relatório indicando que a verificação precisa ser reprocessada dentro da janela.
+
+### Rate limits de voz
+
+| Limite | Valor |
+|--------|-------|
+| Chamadas por segundo por número de origem | 1 CPS |
+| Chamadas por hora por conta (fase inicial) | 200 |
+| Pool mínimo de números de origem | 5 números (rotação round-robin) |
+
+### Circuit breaker automático
+
+O sistema pausa automaticamente um número de origem se:
+- **ASR (Answer Seizure Ratio)** cair abaixo de 40%
+- **Taxa de reclamação** ultrapassar 0,1%
+
+### Lista DNC
+
+Números registrados no **ANATEL Não Perturbe** (`naoperturbe.com.br`) são automaticamente excluídos das chamadas e categorizados como `DNC_SKIP` no resultado.
+
+---
+
+## Retenção de dados
+
+| Dado | Retenção |
+|------|----------|
+| Resultados de validação (`phone_validations`) | 90 dias |
+| Arquivos CSV de resultado (R2/S3) | 90 dias |
+| Após 90 dias | Anonimização automática dos números |
+| Logs de auditoria (login, criação de chaves) | 365 dias |
+
+---
+
+## Segurança
+
+| Controle | Configuração |
+|----------|-------------|
+| Lockout de login | 5 tentativas falhas → bloqueio de 15 min |
+| Senha mínima | 8 caracteres |
+| Hash de senha | bcrypt, cost factor 12 |
+| Tokens JWT | Assinados com HS256, access 15 min, refresh 7 dias |
+| HTTPS | Obrigatório (TLS 1.2+) |
+| Isolamento entre contas | Row Level Security (PostgreSQL) |
+| Cookies | `httpOnly`, `SameSite=Lax`, `Secure` em produção |
+
+---
+
+## SLA e performance
+
+| Métrica | Alvo |
+|---------|------|
+| Uptime da API | 99,5% |
+| Throughput (módulos de lookup) | > 500 números/minuto |
+| Throughput (com PRESENCA_HUMANA) | > 300 números/minuto |
+| Tempo login → primeiro resultado | < 3 minutos |
+| URLs de download pré-assinadas | Expiração em 1 hora |

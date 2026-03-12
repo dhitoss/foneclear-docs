@@ -1,0 +1,206 @@
+---
+title: "Autenticação"
+description: "Como autenticar requisições na API Foneclear via cookies JWT ou API Key"
+icon: "lock"
+---
+
+A API Foneclear suporta dois métodos de autenticação, adequados para casos de uso distintos.
+
+## Métodos disponíveis
+
+<CardGroup cols={2}>
+  <Card title="Cookies JWT" icon="cookie" color="#06b6d4">
+    Ideal para o **painel web** e browsers. Login com e-mail + senha define cookies `httpOnly` automaticamente. Inclui renovação automática via refresh token.
+  </Card>
+  <Card title="API Key (Bearer)" icon="key" color="#06b6d4">
+    Ideal para **integrações programáticas**, pipelines, scripts e automações. A chave é enviada no header `Authorization: Bearer`.
+  </Card>
+</CardGroup>
+
+---
+
+## Método 1: Cookies JWT
+
+### Fluxo de autenticação
+
+```
+POST /auth/register  →  Cria conta + primeiro usuário (role admin)
+POST /auth/login     →  Define access_token e refresh_token como cookies httpOnly
+POST /auth/refresh   →  Troca o refresh_token por um novo access_token
+POST /auth/logout    →  Limpa os cookies
+```
+
+### Tokens
+
+| Token | Duração | Path |
+|-------|---------|------|
+| `access_token` | 15 minutos | `/` |
+| `refresh_token` | 7 dias | `/api/v1/auth/refresh` |
+
+### Fazer login
+
+```bash
+curl -X POST https://foneclear-web-production.up.railway.app/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -c cookies.txt \
+  -d '{"email": "seu@email.com.br", "password": "SuaSenha123!"}'
+```
+
+O arquivo `cookies.txt` passa a conter os tokens. Use `-b cookies.txt` nas requisições subsequentes.
+
+### Renovar o access_token
+
+Quando o `access_token` expirar (15 min), renove-o sem precisar de login novamente:
+
+```bash
+curl -X POST https://foneclear-web-production.up.railway.app/api/v1/auth/refresh \
+  -b cookies.txt \
+  -c cookies.txt
+```
+
+**Resposta:**
+
+```json
+{"message": "Token renovado com sucesso."}
+```
+
+O cookie `access_token` é atualizado automaticamente.
+
+### Política de lockout
+
+Após **5 tentativas de login com falha**, a conta é bloqueada por **15 minutos**. O endpoint retorna:
+
+```json
+{
+  "error":   "account_locked",
+  "message": "Conta bloqueada. Tente novamente após 2026-03-11T14:15:00Z."
+}
+```
+
+---
+
+## Método 2: API Key
+
+### Formato da chave
+
+As API Keys seguem o formato:
+
+```
+vn_sk_live_<16 caracteres hexadecimais>
+```
+
+Exemplo: `vn_sk_live_a1b2c3d4e5f67890`
+
+<Warning>
+  A chave completa é exibida **apenas uma vez** na criação. O banco armazena somente o hash SHA-256. Guarde a chave em local seguro imediatamente.
+</Warning>
+
+### Criar uma API Key
+
+Requer autenticação com **role admin** via cookie JWT.
+
+```bash
+curl -X POST https://foneclear-web-production.up.railway.app/api/v1/auth/api-keys \
+  -b cookies.txt \
+  -H "Content-Type: application/json" \
+  -d '{"label": "Pipeline de produção"}'
+```
+
+**Resposta (201 Created):**
+
+```json
+{
+  "id":         "c3d4e5f6-a7b8-9012-cdef-012345678901",
+  "key":        "vn_sk_live_a1b2c3d4e5f67890",
+  "prefix":     "vn_sk_live_",
+  "label":      "Pipeline de produção",
+  "created_at": "2026-03-11T14:00:00Z"
+}
+```
+
+### Usar a API Key
+
+Passe a chave no header `Authorization`:
+
+```bash
+curl -X GET https://foneclear-web-production.up.railway.app/api/v1/jobs \
+  -H "Authorization: Bearer vn_sk_live_a1b2c3d4e5f67890"
+```
+
+### Listar API Keys
+
+```bash
+curl https://foneclear-web-production.up.railway.app/api/v1/auth/api-keys \
+  -b cookies.txt
+```
+
+**Resposta:**
+
+```json
+[
+  {
+    "id":           "c3d4e5f6-a7b8-9012-cdef-012345678901",
+    "prefix":       "vn_sk_live_",
+    "label":        "Pipeline de produção",
+    "created_at":   "2026-03-11T14:00:00Z",
+    "last_used_at": "2026-03-11T15:30:00Z",
+    "revoked_at":   null
+  }
+]
+```
+
+### Revogar uma API Key
+
+```bash
+curl -X DELETE https://foneclear-web-production.up.railway.app/api/v1/auth/api-keys/c3d4e5f6-a7b8-9012-cdef-012345678901 \
+  -b cookies.txt
+```
+
+**Resposta:**
+
+```json
+{"message": "Chave de API revogada com sucesso."}
+```
+
+---
+
+## Webhooks (HMAC-SHA256)
+
+Callbacks de conclusão de job são assinados com o `webhook_secret` da conta usando **HMAC-SHA256**.
+
+O header de assinatura enviado pelo Foneclear:
+
+```
+X-Foneclear-Signature: sha256=<hex_digest>
+X-Foneclear-Timestamp: 1741701600
+```
+
+### Validar a assinatura no receptor
+
+```python
+import hmac, hashlib, time
+
+def verify_webhook(payload_bytes: bytes, signature_header: str, timestamp_header: str, secret: str) -> bool:
+    # Verificar timestamp para prevenir replay attacks (máx. 5 min)
+    ts = int(timestamp_header)
+    if abs(time.time() - ts) > 300:
+        return False
+
+    expected = "sha256=" + hmac.new(
+        secret.encode(),
+        msg=f"{timestamp_header}.".encode() + payload_bytes,
+        digestmod=hashlib.sha256,
+    ).hexdigest()
+
+    return hmac.compare_digest(expected, signature_header)
+```
+
+---
+
+## Planos e limites de API Keys
+
+| Plano | API Keys ativas | Rate limit (por chave) | Rate limit (por conta) |
+|-------|-----------------|----------------------|----------------------|
+| Free | 5 | 100 req/min | 1.000 req/min |
+| Pro | 20 | 100 req/min | 1.000 req/min |
+| Enterprise | Ilimitado | Configurável | Configurável |

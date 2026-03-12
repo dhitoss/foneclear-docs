@@ -1,0 +1,201 @@
+---
+title: "Módulos de Validação"
+description: "Entenda cada módulo disponível, o que ele verifica, custo e dependências"
+icon: "puzzle-piece"
+---
+
+O Foneclear é modular: você escolhe exatamente quais verificações executar ao criar um job. Cada módulo tem custo, tempo e precisão distintos.
+
+## Princípio de execução
+
+Os módulos são executados em cascata, do mais rápido/barato ao mais lento/caro:
+
+```
+Fase 0 — FORMATO         (todos os números)
+    ↓ apenas números com formato válido
+Fase 1 — TIPO_LINHA / OPERADORA / REASSOCIADO   (Twilio Lookup API v2)
+    ↓ apenas se módulo PRESENCA_HUMANA selecionado + número é móvel
+Fase 3 — PRESENCA_HUMANA  (chamada Twilio + AMD)
+```
+
+<Note>
+  O módulo `FORMATO` é **sempre incluído automaticamente** em qualquer job. Você não precisa declará-lo explicitamente — mas pode.
+</Note>
+
+---
+
+## Módulos disponíveis
+
+### FORMATO
+
+Verifica se o número tem formato E.164 válido usando regex e a biblioteca `libphonenumber`.
+
+| Atributo | Valor |
+|----------|-------|
+| **Custo** | Grátis |
+| **Precisão** | 100% |
+| **Tecnologia** | Regex + libphonenumber |
+| **Dependências** | Nenhuma |
+| **Obrigatório** | Sim (sempre executado) |
+
+**O que valida:**
+- Comprimento correto para números brasileiros (DDD + 8 ou 9 dígitos)
+- Prefixo de país correto (+55)
+- DDD válido (11–99, apenas DDDs atribuídos pela ANATEL)
+- Normalização de formatos variados: `(11) 9 8765-4321`, `11987654321`, `+5511987654321`
+
+**Campos adicionados ao resultado:**
+
+```json
+{
+  "format_valid":  true,
+  "phone_number":  "+5511987654321"
+}
+```
+
+---
+
+### TIPO_LINHA
+
+Identifica o tipo de linha do número: móvel, fixo, VoIP ou não atribuído.
+
+| Atributo | Valor |
+|----------|-------|
+| **Custo** | $0.005 por número |
+| **Precisão** | Alta |
+| **Tecnologia** | Twilio Lookup API v2 — `line_type_intelligence` |
+| **Dependências** | Nenhuma |
+
+**Valores possíveis para `line_type`:**
+
+| Valor | Descrição |
+|-------|-----------|
+| `mobile` | Linha móvel (celular) |
+| `landline` | Linha fixa (telefone residencial ou comercial) |
+| `voip` | Linha VoIP (ex: Skype, Google Voice, operadoras IP) |
+| `unknown` | Tipo não determinado |
+
+**Campos adicionados ao resultado:**
+
+```json
+{
+  "line_type": "mobile"
+}
+```
+
+---
+
+### OPERADORA
+
+Identifica a operadora atual do número (portabilidade considerada).
+
+| Atributo | Valor |
+|----------|-------|
+| **Custo** | $0.005 por número |
+| **Precisão** | Alta |
+| **Tecnologia** | Twilio Lookup API v2 — `caller_name` + carrier |
+| **Dependências** | Nenhuma |
+
+<Info>
+  `TIPO_LINHA` e `OPERADORA` são cobrados juntos numa única chamada à Twilio Lookup API v2. Se selecionar ambos, o custo total é $0.005 (não $0.01).
+</Info>
+
+**Campos adicionados ao resultado:**
+
+```json
+{
+  "carrier_name": "Vivo",
+  "carrier_type": "mobile"
+}
+```
+
+---
+
+### REASSOCIADO
+
+Verifica se o número foi reassociado a outro titular nos últimos 90 dias (relevante para compliance LGPD).
+
+| Atributo | Valor |
+|----------|-------|
+| **Custo** | $0.01 por número |
+| **Precisão** | Alta |
+| **Tecnologia** | Twilio Reassigned Number API |
+| **Dependências** | Nenhuma |
+
+**Por que usar:**
+Números de celular são reutilizados pelas operadoras após inatividade. Contatar um número reassociado a um terceiro — especialmente com dados da campanha original — gera risco jurídico sob a LGPD.
+
+**Campos adicionados ao resultado:**
+
+```json
+{
+  "is_reassigned": false
+}
+```
+
+| Valor | Descrição |
+|-------|-----------|
+| `false` | Número não foi reassociado (mesmo titular) |
+| `true` | Número foi reassociado a outro titular |
+| `null` | Não foi possível determinar (número não rastreado) |
+
+---
+
+### PRESENCA_HUMANA
+
+Realiza uma chamada telefônica curta com **Answering Machine Detection (AMD)** para determinar se o número atende um humano, URA ou caixa postal.
+
+| Atributo | Valor |
+|----------|-------|
+| **Custo** | $0.01–$0.02 por número |
+| **Precisão** | Média-Alta |
+| **Tecnologia** | Twilio Programmable Voice + AMD |
+| **Dependências** | Trust Hub aprovado + SHAKEN/STIR registrado |
+
+<Warning>
+  Este é o único módulo que realiza chamadas telefônicas reais. Restrições operacionais se aplicam:
+  - **Horário**: apenas das 08h às 20h (fuso America/Sao_Paulo)
+  - **Volume máximo**: 200 chamadas/hora por conta na fase inicial
+  - **Lista DNC**: números no cadastro ANATEL Não Perturbe são pulados
+  - **AMD pending**: números fora do horário são marcados como `amd_result: "pending"` e não geram custo
+</Warning>
+
+**Valores possíveis para `amd_result`:**
+
+| Valor | Descrição |
+|-------|-----------|
+| `human` | Atendeu um humano |
+| `machine` | Atendeu secretária eletrônica, URA ou caixa postal |
+| `fax` | Linha de fax detectada |
+| `no-answer` | Não atendeu dentro do timeout |
+| `failed` | Chamada falhou (número incorreto, ocupado, etc.) |
+| `pending` | Aguardando janela de horário comercial |
+
+**Campos adicionados ao resultado:**
+
+```json
+{
+  "amd_result":         "human",
+  "ura_classification": null
+}
+```
+
+---
+
+## Combinações recomendadas por caso de uso
+
+| Objetivo | Módulos | Custo estimado/número |
+|----------|---------|----------------------|
+| Limpar números inválidos da base | `FORMATO` + `TIPO_LINHA` | ~$0.005 |
+| Detectar números reassociados (compliance LGPD) | `FORMATO` + `TIPO_LINHA` + `REASSOCIADO` | ~$0.015 |
+| Filtrar por operadora para campanha | `FORMATO` + `TIPO_LINHA` + `OPERADORA` | ~$0.005 |
+| Verificar presença humana para call center | `FORMATO` + `TIPO_LINHA` + `PRESENCA_HUMANA` | ~$0.02 |
+| Higienização completa | `FORMATO` + `TIPO_LINHA` + `OPERADORA` + `REASSOCIADO` | ~$0.02 |
+
+## Módulos futuros (em desenvolvimento)
+
+| Módulo | Descrição | Status |
+|--------|-----------|--------|
+| `SIM_SWAP` | Detecta troca recente de chip | Em breve |
+| `WHATSAPP` | Verifica se o número tem WhatsApp ativo | Em breve |
+| `CLASSIFICACAO_URA` | Classifica URA via IA (Gemini) | Em breve |

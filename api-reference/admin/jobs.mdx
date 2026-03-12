@@ -1,0 +1,107 @@
+---
+title: "Listar Todos os Jobs (Admin)"
+description: "Lista jobs de todas as contas com filtros — requer role admin"
+api: "GET /admin/jobs"
+---
+
+Lista todos os jobs de todas as contas da plataforma, enriquecidos com dados da conta proprietária. Exclusivo para usuários com `role: admin`.
+
+<Warning>
+  Este endpoint expõe dados de todos os clientes. Use apenas para fins administrativos legítimos.
+</Warning>
+
+## Autenticação
+
+Requer autenticação com **role admin** (cookie JWT ou API Key de usuário admin).
+
+## Query Parameters
+
+<ParamField query="status" type="string">
+  Filtra por status do job. Valores válidos:
+  `pending_approval`, `queued`, `processing`, `completed`, `failed`, `cancelled`.
+</ParamField>
+
+<ParamField query="page" type="integer" default="1">
+  Número da página.
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="20">
+  Itens por página. Máximo 100.
+</ParamField>
+
+## Resposta
+
+<ResponseField name="data" type="array">
+  Lista de jobs com dados completos + informações da conta.
+
+  <Expandable title="Campos adicionais em relação ao endpoint de usuário">
+    <ResponseField name="account_email" type="string">
+      E-mail da conta proprietária do job.
+    </ResponseField>
+    <ResponseField name="account_name" type="string">
+      Nome da conta proprietária.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="pagination" type="object">
+  Informações de paginação padrão.
+</ResponseField>
+
+<RequestExample>
+
+```bash cURL — jobs aguardando aprovação
+curl "https://foneclear-web-production.up.railway.app/api/v1/admin/jobs?status=pending_approval" \
+  -b cookies.txt
+```
+
+```bash cURL — todos os jobs
+curl "https://foneclear-web-production.up.railway.app/api/v1/admin/jobs?per_page=50" \
+  -b cookies.txt
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200 OK
+{
+  "data": [
+    {
+      "id":               "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+      "account_id":       "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "account_email":    "contato@empresa.com.br",
+      "account_name":     "Empresa Exemplo Ltda",
+      "status":           "pending_approval",
+      "modules":          ["FORMATO", "TIPO_LINHA", "REASSOCIADO"],
+      "total_numbers":    5000,
+      "processed_count":  0,
+      "estimated_cost":   75.0,
+      "actual_cost":      null,
+      "approved_by":      null,
+      "approved_at":      null,
+      "rejection_reason": null,
+      "created_at":       "2026-03-11T15:30:00Z",
+      "started_at":       null,
+      "completed_at":     null
+    }
+  ],
+  "pagination": {
+    "page":     1,
+    "per_page": 20,
+    "total":    1,
+    "pages":    1,
+    "has_next": false,
+    "has_prev": false
+  }
+}
+```
+
+```json 403 Sem permissão
+{
+  "error":   "forbidden",
+  "message": "Permissão insuficiente. Esta operação requer role admin."
+}
+```
+
+</ResponseExample>

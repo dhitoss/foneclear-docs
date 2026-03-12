@@ -1,0 +1,164 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "venus",
+  "name": "Foneclear API",
+  "subdomain": "ajuda-foneclear",
+  "description": "Plataforma modular de validação de números telefônicos brasileiros. Higienize e categorize sua base com precisão.",
+  "colors": {
+    "primary": "#06b6d4",
+    "light": "#67e8f9",
+    "dark": "#0e7490"
+  },
+  "darkMode": true,
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg",
+    "href": "https://foneclear-web-production.up.railway.app"
+  },
+  "favicon": "/favicon.svg",
+  "api": {
+    "baseUrl": "https://foneclear-web-production.up.railway.app/api/v1",
+    "auth": {
+      "method": "bearer",
+      "name": "Authorization"
+    }
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Plataforma",
+        "href": "https://foneclear-web-production.up.railway.app"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Acessar Painel",
+      "href": "https://foneclear-web-production.up.railway.app/login"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guias",
+        "icon": "book-open",
+        "groups": [
+          {
+            "group": "Início",
+            "icon": "rocket",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "authentication"
+            ]
+          },
+          {
+            "group": "Conceitos",
+            "icon": "lightbulb",
+            "pages": [
+              "modules",
+              "categories",
+              "limits",
+              "errors"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "icon": "square-terminal",
+        "groups": [
+          {
+            "group": "Autenticação",
+            "icon": "lock",
+            "pages": [
+              "api-reference/auth/register",
+              "api-reference/auth/login",
+              "api-reference/auth/refresh",
+              "api-reference/auth/logout",
+              "api-reference/auth/me",
+              "api-reference/auth/api-keys"
+            ]
+          },
+          {
+            "group": "Jobs",
+            "icon": "list-check",
+            "pages": [
+              "api-reference/jobs/create",
+              "api-reference/jobs/list",
+              "api-reference/jobs/get",
+              "api-reference/jobs/validations",
+              "api-reference/jobs/cancel",
+              "api-reference/jobs/download"
+            ]
+          },
+          {
+            "group": "Conta",
+            "icon": "user",
+            "pages": [
+              "api-reference/jobs/credits"
+            ]
+          },
+          {
+            "group": "Admin",
+            "icon": "shield",
+            "pages": [
+              "api-reference/admin/jobs",
+              "api-reference/admin/approve",
+              "api-reference/admin/reject"
+            ]
+          },
+          {
+            "group": "Webhooks",
+            "icon": "webhook",
+            "pages": [
+              "api-reference/webhooks/overview"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "footer": {
+    "links": [
+      {
+        "header": "Produto",
+        "items": [
+          {
+            "label": "Painel Web",
+            "href": "https://foneclear-web-production.up.railway.app"
+          },
+          {
+            "label": "Preços",
+            "href": "https://foneclear-web-production.up.railway.app/pricing"
+          }
+        ]
+      },
+      {
+        "header": "Legal",
+        "items": [
+          {
+            "label": "Termos de Uso",
+            "href": "https://foneclear-web-production.up.railway.app/terms"
+          },
+          {
+            "label": "Privacidade (LGPD)",
+            "href": "https://foneclear-web-production.up.railway.app/privacy"
+          }
+        ]
+      },
+      {
+        "header": "Referências",
+        "items": [
+          {
+            "label": "Twilio Lookup API",
+            "href": "https://www.twilio.com/docs/lookup/v2-api"
+          },
+          {
+            "label": "ANATEL Não Perturbe",
+            "href": "https://www.naoperturbe.com.br"
+          }
+        ]
+      }
+    ]
+  }
+}

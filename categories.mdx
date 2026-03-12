@@ -1,0 +1,110 @@
+---
+title: "Categorias de Resultado"
+description: "Todas as categorias possíveis retornadas pelo Foneclear após a validação"
+icon: "tags"
+---
+
+Cada número validado recebe uma **categoria** final, derivada automaticamente a partir dos resultados combinados dos módulos executados. A categoria aparece no campo `category` de cada `PhoneValidation` e no sumário do job.
+
+## Categorias por módulo base
+
+### Apenas FORMATO
+
+| Categoria | Descrição |
+|-----------|-----------|
+| `INVALIDO` | Número com formato inválido — não é possível executar outros módulos |
+| `FORMATO_VALIDO` | Formato válido, nenhum módulo adicional selecionado |
+
+### FORMATO + TIPO_LINHA
+
+| Categoria | Descrição |
+|-----------|-----------|
+| `INVALIDO` | Formato inválido |
+| `VALIDO_MOVEL` | Número móvel com formato válido |
+| `VALIDO_FIXO` | Número de linha fixa com formato válido |
+| `VALIDO_VOIP` | Número VoIP com formato válido |
+| `TIPO_DESCONHECIDO` | Formato válido, tipo de linha não determinado |
+
+### FORMATO + TIPO_LINHA + OPERADORA
+
+Mesmas categorias acima, com o campo `carrier_name` preenchido adicionalmente.
+
+### FORMATO + TIPO_LINHA + REASSOCIADO
+
+| Categoria | Descrição |
+|-----------|-----------|
+| `INVALIDO` | Formato inválido |
+| `VALIDO_MOVEL` | Móvel, não reassociado |
+| `VALIDO_FIXO` | Fixo, não reassociado |
+| `VALIDO_VOIP` | VoIP, não reassociado |
+| `REASSOCIADO` | Número confirmado como reassociado a outro titular |
+| `TIPO_DESCONHECIDO` | Tipo de linha não determinado |
+
+### FORMATO + TIPO_LINHA + PRESENCA_HUMANA
+
+| Categoria | Descrição |
+|-----------|-----------|
+| `INVALIDO` | Formato inválido |
+| `VALIDO_FIXO` | Linha fixa (AMD não executado em fixos) |
+| `VALIDO_VOIP` | VoIP (AMD não executado) |
+| `HUMANO` | Atendeu humano confirmado pelo AMD |
+| `MAQUINA` | Atendeu URA, secretária eletrônica ou caixa postal |
+| `FAX` | Linha de fax |
+| `SEM_RESPOSTA` | Não atendeu dentro do timeout |
+| `FALHA_CHAMADA` | Chamada falhou (número incorreto, congestionamento, etc.) |
+| `AMD_PENDENTE` | Aguardando janela de horário comercial (08h–20h BRT) |
+| `TIPO_DESCONHECIDO` | Tipo de linha não determinado |
+
+---
+
+## Regras de derivação de categoria
+
+A categoria é derivada seguindo uma hierarquia de prioridade:
+
+```
+1. format_valid == false        → INVALIDO
+2. line_type == "landline"      → VALIDO_FIXO
+3. line_type == "voip"          → VALIDO_VOIP
+4. is_reassigned == true        → REASSOCIADO
+5. amd_result == "human"        → HUMANO
+6. amd_result == "machine"      → MAQUINA
+7. amd_result == "fax"          → FAX
+8. amd_result == "no-answer"    → SEM_RESPOSTA
+9. amd_result == "failed"       → FALHA_CHAMADA
+10. amd_result == "pending"     → AMD_PENDENTE
+11. line_type == "mobile"       → VALIDO_MOVEL
+12. line_type == "unknown"/null → TIPO_DESCONHECIDO
+```
+
+---
+
+## Exemplo de sumário de job
+
+Ao consultar `GET /api/v1/jobs/{id}` com status `completed`, o campo `summary` retorna a contagem por categoria:
+
+```json
+{
+  "summary": {
+    "VALIDO_MOVEL":    1842,
+    "VALIDO_FIXO":      234,
+    "INVALIDO":         156,
+    "REASSOCIADO":       87,
+    "TIPO_DESCONHECIDO": 23,
+    "MAQUINA":           15,
+    "HUMANO":           443
+  }
+}
+```
+
+---
+
+## Categorias no CSV de resultado
+
+O CSV exportado inclui a coluna `foneclear_categoria` com o valor exato da categoria. Use esta coluna para filtrar e segmentar sua base:
+
+```csv
+nome,telefone,foneclear_numero,foneclear_categoria,foneclear_tipo_linha,foneclear_operadora
+João Silva,11987654321,+5511987654321,VALIDO_MOVEL,mobile,Vivo
+Maria Santos,(21)99876-5432,+5521998765432,REASSOCIADO,mobile,Claro
+Carlos Oliveira,+553188887777,+5531988887777,INVALIDO,,
+```

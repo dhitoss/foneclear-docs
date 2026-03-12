@@ -1,0 +1,183 @@
+---
+title: "Resultados Individuais"
+description: "Lista os resultados de validação por número para um job concluído"
+api: "GET /jobs/{job_id}/validations"
+---
+
+Retorna uma lista paginada dos resultados individuais de cada número validado em um job. Suporta filtros por categoria e busca por número.
+
+## Autenticação
+
+Requer `access_token` (cookie) ou `Authorization: Bearer <api_key>`. O job deve pertencer à conta autenticada.
+
+## Path Parameters
+
+<ParamField path="job_id" type="string" required>
+  UUID do job.
+</ParamField>
+
+## Query Parameters
+
+<ParamField query="category" type="string">
+  Filtra por categoria exata. Exemplos: `VALIDO_MOVEL`, `INVALIDO`, `REASSOCIADO`.
+  Veja todas as categorias em [Categorias de Resultado](/categories).
+</ParamField>
+
+<ParamField query="search" type="string">
+  Busca textual. Pesquisa nos campos `phone_number`, `original_input` e `carrier_name`.
+  Exemplo: `?search=11987` retorna números contendo `11987`.
+</ParamField>
+
+<ParamField query="page" type="integer" default="1">
+  Número da página.
+</ParamField>
+
+<ParamField query="per_page" type="integer" default="20">
+  Itens por página. Máximo 100.
+</ParamField>
+
+## Resposta
+
+<ResponseField name="data" type="array">
+  Lista de validações individuais.
+
+  <Expandable title="Campos de cada validação">
+    <ResponseField name="id" type="string">UUID da validação.</ResponseField>
+    <ResponseField name="job_id" type="string">UUID do job.</ResponseField>
+    <ResponseField name="account_id" type="string">UUID da conta.</ResponseField>
+    <ResponseField name="phone_number" type="string">Número normalizado em E.164 (ex: `+5511987654321`).</ResponseField>
+    <ResponseField name="original_input" type="string">Valor original do CSV (ex: `(11) 9 8765-4321`).</ResponseField>
+    <ResponseField name="row_index" type="integer">Índice da linha no arquivo original (base 0).</ResponseField>
+    <ResponseField name="format_valid" type="boolean">Formato E.164 válido?</ResponseField>
+    <ResponseField name="line_type" type="string">Tipo de linha: `mobile`, `landline`, `voip` ou `null`.</ResponseField>
+    <ResponseField name="carrier_name" type="string">Nome da operadora ou `null`.</ResponseField>
+    <ResponseField name="carrier_type" type="string">Tipo da operadora ou `null`.</ResponseField>
+    <ResponseField name="is_reassigned" type="boolean">Número reassociado? `true`, `false` ou `null`.</ResponseField>
+    <ResponseField name="sim_swap_detected" type="boolean">SIM swap detectado? (módulo futuro)</ResponseField>
+    <ResponseField name="sim_swap_last_date" type="string">Data do último SIM swap (módulo futuro).</ResponseField>
+    <ResponseField name="has_whatsapp" type="boolean">Tem WhatsApp? (módulo futuro)</ResponseField>
+    <ResponseField name="amd_result" type="string">Resultado AMD: `human`, `machine`, `fax`, `no-answer`, `failed`, `pending` ou `null`.</ResponseField>
+    <ResponseField name="ura_classification" type="string">Classificação URA (módulo futuro).</ResponseField>
+    <ResponseField name="category" type="string">Categoria final derivada (ex: `VALIDO_MOVEL`).</ResponseField>
+    <ResponseField name="modules_executed" type="array">Módulos efetivamente executados para este número.</ResponseField>
+    <ResponseField name="processing_cost" type="number">Custo de processamento deste número em créditos.</ResponseField>
+    <ResponseField name="validated_at" type="string">Timestamp de validação.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="pagination" type="object">
+  Informações de paginação (mesma estrutura dos outros endpoints).
+</ResponseField>
+
+<RequestExample>
+
+```bash cURL — todos os resultados
+curl "https://foneclear-web-production.up.railway.app/api/v1/jobs/f47ac10b-58cc-4372-a567-0e02b2c3d479/validations" \
+  -b cookies.txt
+```
+
+```bash cURL — apenas inválidos
+curl "https://foneclear-web-production.up.railway.app/api/v1/jobs/f47ac10b-58cc-4372-a567-0e02b2c3d479/validations?category=INVALIDO" \
+  -b cookies.txt
+```
+
+```bash cURL — busca por operadora
+curl "https://foneclear-web-production.up.railway.app/api/v1/jobs/f47ac10b-58cc-4372-a567-0e02b2c3d479/validations?search=Vivo" \
+  -b cookies.txt
+```
+
+```python Python — exportar todos os resultados de forma paginada
+import httpx
+
+job_id = "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+headers = {"Authorization": "Bearer vn_sk_live_a1b2c3d4e5f67890"}
+page = 1
+all_results = []
+
+while True:
+    r = httpx.get(
+        f"https://foneclear-web-production.up.railway.app/api/v1/jobs/{job_id}/validations",
+        headers=headers,
+        params={"page": page, "per_page": 100},
+    )
+    data = r.json()
+    all_results.extend(data["data"])
+
+    if not data["pagination"]["has_next"]:
+        break
+    page += 1
+
+print(f"Total de validações: {len(all_results)}")
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200 OK
+{
+  "data": [
+    {
+      "id":               "v1a2b3c4-d5e6-f7a8-b9c0-d1e2f3a4b5c6",
+      "job_id":           "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+      "account_id":       "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "phone_number":     "+5511987654321",
+      "original_input":   "(11) 9 8765-4321",
+      "row_index":        0,
+      "format_valid":     true,
+      "line_type":        "mobile",
+      "carrier_name":     "Vivo",
+      "carrier_type":     "mobile",
+      "is_reassigned":    null,
+      "sim_swap_detected": null,
+      "sim_swap_last_date": null,
+      "has_whatsapp":     null,
+      "amd_result":       null,
+      "ura_classification": null,
+      "category":         "VALIDO_MOVEL",
+      "modules_executed": ["FORMATO", "TIPO_LINHA", "OPERADORA"],
+      "processing_cost":  0.005,
+      "validated_at":     "2026-03-11T14:03:15Z"
+    },
+    {
+      "id":               "v2b3c4d5-e6f7-a8b9-c0d1-e2f3a4b5c6d7",
+      "job_id":           "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+      "account_id":       "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "phone_number":     "+5521999999999",
+      "original_input":   "21 9999-99999",
+      "row_index":        1,
+      "format_valid":     false,
+      "line_type":        null,
+      "carrier_name":     null,
+      "carrier_type":     null,
+      "is_reassigned":    null,
+      "sim_swap_detected": null,
+      "sim_swap_last_date": null,
+      "has_whatsapp":     null,
+      "amd_result":       null,
+      "ura_classification": null,
+      "category":         "INVALIDO",
+      "modules_executed": ["FORMATO"],
+      "processing_cost":  0.0,
+      "validated_at":     "2026-03-11T14:03:15Z"
+    }
+  ],
+  "pagination": {
+    "page":     1,
+    "per_page": 20,
+    "total":    1500,
+    "pages":    75,
+    "has_next": true,
+    "has_prev": false
+  }
+}
+```
+
+```json 404 Job não encontrado
+{
+  "error":   "not_found",
+  "message": "Job não encontrado."
+}
+```
+
+</ResponseExample>

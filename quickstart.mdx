@@ -1,0 +1,190 @@
+---
+title: "Quickstart"
+description: "Do registro ao download do primeiro resultado em menos de 5 minutos"
+icon: "rocket"
+---
+
+## Pré-requisitos
+
+- `curl` instalado (ou qualquer cliente HTTP)
+- Um arquivo CSV com uma coluna de números de telefone brasileiros
+
+## Passo 1 — Criar conta
+
+```bash
+curl -X POST https://foneclear-web-production.up.railway.app/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Empresa Exemplo Ltda",
+    "email": "contato@empresa.com.br",
+    "password": "SenhaSegura123!"
+  }'
+```
+
+**Resposta (201 Created):**
+
+```json
+{
+  "account_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "user_id":    "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+  "email":      "contato@empresa.com.br",
+  "plan":       "free",
+  "credits":    500
+}
+```
+
+<Note>
+  Novas contas recebem **500 créditos** grátis no plano Free. 1 crédito = $0.001 USD.
+</Note>
+
+## Passo 2 — Fazer login
+
+```bash
+curl -X POST https://foneclear-web-production.up.railway.app/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -c cookies.txt \
+  -d '{
+    "email":    "contato@empresa.com.br",
+    "password": "SenhaSegura123!"
+  }'
+```
+
+O servidor define dois cookies `httpOnly`:
+- `access_token` — válido por **15 minutos**
+- `refresh_token` — válido por **7 dias**, path `/api/v1/auth/refresh`
+
+**Resposta (200 OK):**
+
+```json
+{
+  "user_id":    "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+  "account_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "email":      "contato@empresa.com.br",
+  "role":       "admin",
+  "plan":       "free",
+  "credits":    500
+}
+```
+
+<Tip>
+  Para acesso programático (integrações, pipelines), prefira criar uma **API Key** em vez de usar cookies. Veja [Autenticação](/authentication).
+</Tip>
+
+## Passo 3 — Criar um job de validação
+
+Prepare um arquivo CSV. Exemplo (`numeros.csv`):
+
+```csv
+nome,telefone,cidade
+João Silva,11987654321,São Paulo
+Maria Santos,(21) 99876-5432,Rio de Janeiro
+Carlos Oliveira,+5531988887777,Belo Horizonte
+```
+
+Submeta o arquivo com os módulos desejados:
+
+```bash
+curl -X POST https://foneclear-web-production.up.railway.app/api/v1/jobs \
+  -b cookies.txt \
+  -F "file=@numeros.csv" \
+  -F "modules=FORMATO,TIPO_LINHA,OPERADORA" \
+  -F "phone_column=telefone" \
+  -F "country_code=BR"
+```
+
+**Resposta (202 Accepted):**
+
+```json
+{
+  "id":              "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "account_id":      "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "status":          "pending_approval",
+  "modules":         ["FORMATO", "TIPO_LINHA", "OPERADORA"],
+  "total_numbers":   3,
+  "processed_count": 0,
+  "estimated_cost":  0.03,
+  "estimated_cost_brl": 0.00,
+  "created_at":      "2026-03-11T14:00:00Z"
+}
+```
+
+<Info>
+  Jobs entram no status **`pending_approval`** e aguardam aprovação de um administrador antes de serem processados. Após aprovação, o status muda para **`queued`** e depois **`processing`**.
+</Info>
+
+## Passo 4 — Acompanhar o progresso
+
+```bash
+curl https://foneclear-web-production.up.railway.app/api/v1/jobs/f47ac10b-58cc-4372-a567-0e02b2c3d479 \
+  -b cookies.txt
+```
+
+**Durante o processamento (status `processing`):**
+
+```json
+{
+  "id":              "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "status":          "processing",
+  "total_numbers":   3,
+  "processed_count": 1,
+  "modules":         ["FORMATO", "TIPO_LINHA", "OPERADORA"]
+}
+```
+
+**Quando concluído (status `completed`):**
+
+```json
+{
+  "id":              "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "status":          "completed",
+  "total_numbers":   3,
+  "processed_count": 3,
+  "valid_count":     2,
+  "actual_cost":     0.02,
+  "summary": {
+    "VALIDO_MOVEL":   2,
+    "INVALIDO":       1
+  },
+  "download_url": "https://f9a892ce766c3407f91e7dadc4f4814c.r2.cloudflarestorage.com/foneclear/results/..."
+}
+```
+
+## Passo 5 — Baixar o resultado
+
+Use o `download_url` retornado para baixar o CSV categorizado:
+
+```bash
+curl -L "https://f9a892ce766c3407f91e7dadc4f4814c.r2.cloudflarestorage.com/foneclear/results/..." \
+  -o resultado.csv
+```
+
+O CSV de resultado contém todas as colunas originais mais as colunas adicionadas pelo Foneclear:
+
+| Coluna adicionada | Descrição |
+|-------------------|-----------|
+| `foneclear_numero` | Número normalizado em E.164 |
+| `foneclear_categoria` | Categoria final (ex: `VALIDO_MOVEL`) |
+| `foneclear_formato_valido` | `true` / `false` |
+| `foneclear_tipo_linha` | `mobile`, `landline`, `voip` |
+| `foneclear_operadora` | Nome da operadora |
+
+## Exemplo completo com API Key
+
+Se preferir usar API Key no lugar de cookies:
+
+```bash
+# 1. Criar API Key (requer role admin)
+curl -X POST https://foneclear-web-production.up.railway.app/api/v1/auth/api-keys \
+  -b cookies.txt \
+  -H "Content-Type: application/json" \
+  -d '{"label": "Pipeline de Produção"}'
+
+# Resposta: {"key": "vn_sk_live_a1b2c3d4e5f67890", ...}
+# Guarde esta chave — ela é exibida apenas uma vez!
+
+# 2. Usar a API Key em qualquer requisição
+curl -X POST https://foneclear-web-production.up.railway.app/api/v1/jobs \
+  -H "Authorization: Bearer vn_sk_live_a1b2c3d4e5f67890" \
+  -F "file=@numeros.csv" \
+  -F "modules=FORMATO,TIPO_LINHA"
+```

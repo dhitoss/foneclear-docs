@@ -1,0 +1,210 @@
+---
+title: "Webhooks"
+description: "Receba notificações de conclusão de jobs via callback HTTP assinado com HMAC-SHA256"
+icon: "webhook"
+---
+
+O Foneclear pode enviar um **POST HTTP** para uma URL de sua escolha quando um job é concluído. Isso elimina a necessidade de polling periódico.
+
+## Configurar o callback
+
+Passe o parâmetro `callback_url` ao criar um job:
+
+```bash
+curl -X POST https://foneclear-web-production.up.railway.app/api/v1/jobs \
+  -b cookies.txt \
+  -F "file=@numeros.csv" \
+  -F "modules=FORMATO,TIPO_LINHA" \
+  -F "callback_url=https://meusite.com.br/webhook/foneclear"
+```
+
+---
+
+## Payload do webhook
+
+Quando o job for concluído (status `completed` ou `failed`), o Foneclear envia:
+
+```http
+POST https://meusite.com.br/webhook/foneclear
+Content-Type: application/json
+X-Foneclear-Signature: sha256=<hex_digest>
+X-Foneclear-Timestamp: 1741701600
+```
+
+```json
+{
+  "event":   "job.completed",
+  "job_id":  "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "status":  "completed",
+  "summary": {
+    "VALIDO_MOVEL":  1042,
+    "VALIDO_FIXO":    180,
+    "INVALIDO":       213,
+    "REASSOCIADO":     65
+  },
+  "total_numbers":   1500,
+  "actual_cost":     7.2,
+  "completed_at":    "2026-03-11T14:05:33Z",
+  "download_url":    "https://f9a892ce766c3407f91e7dadc4f4814c.r2.cloudflarestorage.com/foneclear/results/..."
+}
+```
+
+**Evento `job.failed`:**
+
+```json
+{
+  "event":         "job.failed",
+  "job_id":        "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "status":        "failed",
+  "error_message": "Falha na comunicação com a API Twilio.",
+  "completed_at":  "2026-03-11T14:05:33Z"
+}
+```
+
+---
+
+## Validar a assinatura
+
+<Warning>
+  **Sempre valide a assinatura HMAC-SHA256** antes de processar o payload. Ignore requisições sem assinatura válida.
+</Warning>
+
+### Obter o webhook_secret
+
+O `webhook_secret` é gerado automaticamente ao criar sua conta e pode ser consultado via API (endpoint a ser adicionado) ou no painel.
+
+### Algoritmo de validação
+
+```
+mensagem = timestamp + "." + body_raw
+assinatura_esperada = "sha256=" + HMAC-SHA256(webhook_secret, mensagem)
+```
+
+1. Leia o header `X-Foneclear-Timestamp`
+2. Verifique que o timestamp está dentro de **5 minutos** do horário atual (previne replay attacks)
+3. Concatene `timestamp + "." + corpo_bruto_da_requisição`
+4. Calcule o HMAC-SHA256 usando o `webhook_secret` da sua conta
+5. Compare com o header `X-Foneclear-Signature` usando comparação segura (`hmac.compare_digest`)
+
+### Exemplo em Python (Flask)
+
+```python
+import hmac
+import hashlib
+import time
+from flask import Flask, request, abort
+
+app = Flask(__name__)
+WEBHOOK_SECRET = "seu_webhook_secret_aqui"
+
+@app.route("/webhook/foneclear", methods=["POST"])
+def foneclear_webhook():
+    # 1. Verificar headers
+    signature = request.headers.get("X-Foneclear-Signature", "")
+    timestamp  = request.headers.get("X-Foneclear-Timestamp", "")
+
+    if not signature or not timestamp:
+        abort(400, "Headers de assinatura ausentes.")
+
+    # 2. Verificar timestamp (máx. 5 minutos)
+    try:
+        ts = int(timestamp)
+        if abs(time.time() - ts) > 300:
+            abort(400, "Timestamp expirado.")
+    except ValueError:
+        abort(400, "Timestamp inválido.")
+
+    # 3. Calcular assinatura esperada
+    body = request.get_data()  # corpo bruto — não use .json() aqui
+    message = f"{timestamp}.".encode() + body
+    expected = "sha256=" + hmac.new(
+        WEBHOOK_SECRET.encode(),
+        msg=message,
+        digestmod=hashlib.sha256,
+    ).hexdigest()
+
+    # 4. Comparação segura (previne timing attacks)
+    if not hmac.compare_digest(expected, signature):
+        abort(401, "Assinatura inválida.")
+
+    # 5. Processar o evento
+    payload = request.get_json()
+    event   = payload.get("event")
+    job_id  = payload.get("job_id")
+
+    if event == "job.completed":
+        print(f"Job {job_id} concluído! Download: {payload['download_url']}")
+        # Aqui: disparar download, notificar equipe, atualizar CRM, etc.
+
+    elif event == "job.failed":
+        print(f"Job {job_id} falhou: {payload.get('error_message')}")
+
+    return "", 200  # Responda 200 rapidamente
+```
+
+### Exemplo em Node.js (Express)
+
+```javascript
+const express = require("express");
+const crypto  = require("crypto");
+
+const app = express();
+const WEBHOOK_SECRET = "seu_webhook_secret_aqui";
+
+// IMPORTANTE: use express.raw() para preservar o body bruto
+app.post("/webhook/foneclear", express.raw({ type: "application/json" }), (req, res) => {
+    const signature = req.headers["x-foneclear-signature"] || "";
+    const timestamp  = req.headers["x-foneclear-timestamp"] || "";
+
+    // Verificar timestamp
+    const ts = parseInt(timestamp, 10);
+    if (Math.abs(Date.now() / 1000 - ts) > 300) {
+        return res.status(400).send("Timestamp expirado.");
+    }
+
+    // Calcular e comparar assinatura
+    const message  = `${timestamp}.` + req.body.toString();
+    const expected = "sha256=" + crypto
+        .createHmac("sha256", WEBHOOK_SECRET)
+        .update(message)
+        .digest("hex");
+
+    if (!crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {
+        return res.status(401).send("Assinatura inválida.");
+    }
+
+    const payload = JSON.parse(req.body);
+    console.log("Evento:", payload.event, "Job:", payload.job_id);
+
+    res.sendStatus(200);
+});
+```
+
+---
+
+## Comportamento de retry
+
+Se o endpoint de callback retornar um status diferente de `2xx` ou não responder dentro de **10 segundos**, o Foneclear realiza retentativas com backoff exponencial:
+
+| Tentativa | Intervalo |
+|-----------|-----------|
+| 1ª retry | 1 minuto |
+| 2ª retry | 5 minutos |
+| 3ª retry | 30 minutos |
+| 4ª retry (final) | 2 horas |
+
+Após 4 retentativas sem sucesso, o callback é abandonado. O resultado do job ainda pode ser acessado via `GET /jobs/{job_id}`.
+
+---
+
+## Health check do webhook
+
+```
+GET /webhooks/health
+```
+
+Retorna `200 OK` com `{"status": "ok", "service": "webhooks"}`. Use para verificar se o serviço de webhooks está operacional.
+
+```bash
+curl https://foneclear-web-production.up.railway.app/api/v1/webhooks/health
+```

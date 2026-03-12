@@ -1,0 +1,105 @@
+---
+title: "Registrar Conta"
+description: "Cria uma nova conta e um primeiro usuário com role admin"
+api: "POST /auth/register"
+---
+
+Cria uma nova **Account** (conta/empresa) e o primeiro **User** associado a ela com `role: admin`. Não requer autenticação.
+
+Após o registro, faça login em `POST /auth/login` para obter os tokens de acesso.
+
+## Body
+
+<ParamField body="name" type="string" required>
+  Nome da empresa ou pessoa física. Mínimo 1 caractere, máximo 200.
+</ParamField>
+
+<ParamField body="email" type="string" required>
+  E-mail principal da conta. Deve ser único no sistema. Usado como login.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  Senha do usuário. Mínimo 8 caracteres. Armazenada com bcrypt (cost 12).
+</ParamField>
+
+## Resposta
+
+<ResponseField name="account_id" type="string">
+  UUID da conta criada.
+</ResponseField>
+
+<ResponseField name="user_id" type="string">
+  UUID do usuário criado (role: admin).
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  E-mail do usuário criado.
+</ResponseField>
+
+<ResponseField name="plan" type="string">
+  Plano da conta. Novas contas iniciam com `free`.
+</ResponseField>
+
+<ResponseField name="credits" type="integer">
+  Créditos disponíveis. Novas contas recebem **500 créditos** grátis.
+</ResponseField>
+
+<RequestExample>
+
+```bash cURL
+curl -X POST https://foneclear-web-production.up.railway.app/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name":     "Empresa Exemplo Ltda",
+    "email":    "contato@empresa.com.br",
+    "password": "SenhaSegura123!"
+  }'
+```
+
+```python Python
+import httpx
+
+r = httpx.post(
+    "https://foneclear-web-production.up.railway.app/api/v1/auth/register",
+    json={
+        "name":     "Empresa Exemplo Ltda",
+        "email":    "contato@empresa.com.br",
+        "password": "SenhaSegura123!",
+    },
+)
+print(r.json())
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 201 Created
+{
+  "account_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "user_id":    "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+  "email":      "contato@empresa.com.br",
+  "plan":       "free",
+  "credits":    500
+}
+```
+
+```json 422 Validation Error
+{
+  "error":   "validation_error",
+  "message": "Erro de validação.",
+  "details": [
+    {"field": "name",     "message": "Nome é obrigatório."},
+    {"field": "password", "message": "Senha deve ter no mínimo 8 caracteres."}
+  ]
+}
+```
+
+```json 409 Email já cadastrado
+{
+  "error":   "email_exists",
+  "message": "Este e-mail já está cadastrado."
+}
+```
+
+</ResponseExample>

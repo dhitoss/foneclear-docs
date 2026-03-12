@@ -1,0 +1,82 @@
+---
+title: "Introdução"
+description: "Foneclear — plataforma modular de validação de números telefônicos brasileiros"
+icon: "phone"
+---
+
+## O que é o Foneclear?
+
+O **Foneclear** é uma plataforma standalone de higienização e categorização de bases telefônicas. Você faz upload de um arquivo CSV ou XLSX com seus números e escolhe exatamente quais verificações deseja executar. O resultado é um relatório categorizado, pronto para segmentar campanhas e reduzir custo operacional.
+
+<CardGroup cols={2}>
+  <Card title="API Modular" icon="puzzle-piece" color="#06b6d4">
+    Pague apenas pelas verificações que precisar. Escolha entre 5 módulos independentes com preços transparentes por número.
+  </Card>
+  <Card title="Resultados Rápidos" icon="bolt" color="#06b6d4">
+    Processamento assíncrono com Celery. Mais de 500 números por minuto nos módulos de lookup.
+  </Card>
+  <Card title="Compliance LGPD" icon="shield-check" color="#06b6d4">
+    Dados retidos por 90 dias com anonimização automática. Isolamento total entre contas (Row Level Security).
+  </Card>
+  <Card title="API-First" icon="code" color="#06b6d4">
+    Integre com qualquer CRM, automação ou pipeline. Autenticação via cookies JWT ou API Key Bearer.
+  </Card>
+</CardGroup>
+
+## Problema que resolvemos
+
+Empresas com bases de leads enfrentam um problema recorrente: **20–40% dos números importados estão inválidos, inativos, reassociados ou pertencem a linhas fixas/VoIP**.
+
+Isso gera:
+- Custo desperdiçado em campanhas de WhatsApp, SMS e ligações
+- Degradação de métricas de entrega que afetam a reputação do remetente
+- Risco jurídico (LGPD) ao contatar números reassociados a terceiros
+- Perda de produtividade da equipe comercial
+
+## Módulos disponíveis
+
+| Módulo | O que verifica | Custo/número |
+|--------|---------------|--------------|
+| `FORMATO` | Formato E.164 válido (regex + libphonenumber) | Grátis |
+| `TIPO_LINHA` | Móvel, fixo, VoIP ou inválido | $0.005 |
+| `OPERADORA` | Operadora atual (Vivo, Claro, TIM, etc.) | $0.005 |
+| `REASSOCIADO` | O número mudou de titular? | $0.01 |
+| `PRESENCA_HUMANA` | Atende humano, URA ou caixa postal? | $0.01–0.02 |
+
+<Note>
+  O módulo `FORMATO` é sempre executado automaticamente e incluído em qualquer job, independentemente dos módulos selecionados.
+</Note>
+
+## Fluxo básico
+
+```
+1. Registrar conta  →  POST /api/v1/auth/register
+2. Fazer login      →  POST /api/v1/auth/login
+3. Criar job        →  POST /api/v1/jobs  (upload do CSV)
+4. Aguardar admin aprovação (pending_approval → queued)
+5. Acompanhar       →  GET /api/v1/jobs/{id}
+6. Baixar resultado →  GET /api/v1/jobs/{id}  (campo download_url)
+```
+
+## Base URL
+
+```
+https://foneclear-web-production.up.railway.app/api/v1
+```
+
+## Próximos passos
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="play" href="/quickstart">
+    Do registro ao download do primeiro resultado em minutos.
+  </Card>
+  <Card title="Autenticação" icon="lock" href="/authentication">
+    Como se autenticar via cookies JWT ou API Key.
+  </Card>
+  <Card title="Módulos" icon="grid" href="/modules">
+    Entenda cada módulo de validação e seus resultados.
+  </Card>
+  <Card title="Categorias" icon="tags" href="/categories">
+    Todas as categorias possíveis nos resultados.
+  </Card>
+</CardGroup>

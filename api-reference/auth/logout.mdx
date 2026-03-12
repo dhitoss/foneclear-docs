@@ -1,0 +1,47 @@
+---
+title: "Logout"
+description: "Encerra a sessão limpando os cookies de autenticação"
+api: "POST /auth/logout"
+---
+
+Limpa os cookies `access_token` e `refresh_token` definindo-os como strings vazias com `max_age=0`. Nenhum body é necessário.
+
+## Autenticação
+
+Não requer autenticação — funciona mesmo com token expirado.
+
+## Resposta
+
+<ResponseField name="message" type="string">
+  Confirmação: `"Logout realizado com sucesso."`
+</ResponseField>
+
+<RequestExample>
+
+```bash cURL
+curl -X POST https://foneclear-web-production.up.railway.app/api/v1/auth/logout \
+  -b cookies.txt \
+  -c cookies.txt
+```
+
+```python Python
+import httpx
+
+with httpx.Client() as client:
+    r = client.post(
+        "https://foneclear-web-production.up.railway.app/api/v1/auth/logout"
+    )
+    print(r.json())
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200 OK
+{
+  "message": "Logout realizado com sucesso."
+}
+```
+
+</ResponseExample>

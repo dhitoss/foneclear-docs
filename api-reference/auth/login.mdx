@@ -1,0 +1,108 @@
+---
+title: "Login"
+description: "Autentica com e-mail e senha, definindo cookies httpOnly de sessão"
+api: "POST /auth/login"
+---
+
+Autentica o usuário com e-mail e senha. Em caso de sucesso, define dois cookies `httpOnly`:
+
+- **`access_token`** — JWT válido por **15 minutos**, enviado em todas as requisições autenticadas
+- **`refresh_token`** — JWT válido por **7 dias**, path restrito a `/api/v1/auth/refresh`
+
+Use `-c cookies.txt` no curl (ou o gerenciador de cookies do seu cliente HTTP) para persistir os cookies entre requisições.
+
+## Body
+
+<ParamField body="email" type="string" required>
+  E-mail cadastrado na conta.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  Senha do usuário.
+</ParamField>
+
+## Política de lockout
+
+Após **5 tentativas consecutivas** com senha incorreta, a conta é bloqueada por **15 minutos**. O endpoint retorna `423 Locked` com o horário de desbloqueio.
+
+## Resposta
+
+<ResponseField name="user_id" type="string">
+  UUID do usuário autenticado.
+</ResponseField>
+
+<ResponseField name="account_id" type="string">
+  UUID da conta vinculada ao usuário.
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  E-mail do usuário.
+</ResponseField>
+
+<ResponseField name="role" type="string">
+  Role do usuário: `admin` ou `member`.
+</ResponseField>
+
+<ResponseField name="plan" type="string">
+  Plano da conta: `free`, `pro` ou `enterprise`.
+</ResponseField>
+
+<ResponseField name="credits" type="number">
+  Créditos disponíveis na conta.
+</ResponseField>
+
+<RequestExample>
+
+```bash cURL
+curl -X POST https://foneclear-web-production.up.railway.app/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -c cookies.txt \
+  -d '{
+    "email":    "contato@empresa.com.br",
+    "password": "SenhaSegura123!"
+  }'
+```
+
+```python Python
+import httpx
+
+# httpx gerencia cookies automaticamente via session
+with httpx.Client() as client:
+    r = client.post(
+        "https://foneclear-web-production.up.railway.app/api/v1/auth/login",
+        json={"email": "contato@empresa.com.br", "password": "SenhaSegura123!"},
+    )
+    # Cookies são mantidos automaticamente na sessão
+    print(r.json())
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200 OK
+{
+  "user_id":    "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+  "account_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "email":      "contato@empresa.com.br",
+  "role":       "admin",
+  "plan":       "free",
+  "credits":    500
+}
+```
+
+```json 401 Credenciais inválidas
+{
+  "error":   "invalid_credentials",
+  "message": "E-mail ou senha incorretos."
+}
+```
+
+```json 423 Conta bloqueada
+{
+  "error":   "account_locked",
+  "message": "Conta bloqueada até 2026-03-11T14:15:00+00:00."
+}
+```
+
+</ResponseExample>

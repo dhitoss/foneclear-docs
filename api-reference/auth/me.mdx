@@ -1,0 +1,85 @@
+---
+title: "Dados da Conta"
+description: "Retorna créditos, plano e uso mensal da conta autenticada"
+api: "GET /account/credits"
+---
+
+Retorna informações sobre a conta autenticada: créditos disponíveis, plano atual, limites do plano e uso de créditos no mês corrente.
+
+## Autenticação
+
+Requer `access_token` (cookie) ou `Authorization: Bearer <api_key>`.
+
+## Resposta
+
+<ResponseField name="credits_remaining" type="number">
+  Créditos disponíveis na conta no momento da consulta.
+</ResponseField>
+
+<ResponseField name="plan" type="string">
+  Plano atual: `free`, `pro` ou `enterprise`.
+</ResponseField>
+
+<ResponseField name="plan_limits" type="object">
+  Limites do plano atual.
+
+  <Expandable title="plan_limits">
+    <ResponseField name="max_numbers_per_job" type="integer">
+      Máximo de números permitidos por job.
+    </ResponseField>
+    <ResponseField name="max_api_keys" type="integer">
+      Máximo de API Keys ativas.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="usage_this_month" type="number">
+  Total de créditos consumidos em jobs **concluídos** no mês corrente.
+</ResponseField>
+
+<RequestExample>
+
+```bash cURL (cookie)
+curl https://foneclear-web-production.up.railway.app/api/v1/account/credits \
+  -b cookies.txt
+```
+
+```bash cURL (API Key)
+curl https://foneclear-web-production.up.railway.app/api/v1/account/credits \
+  -H "Authorization: Bearer vn_sk_live_a1b2c3d4e5f67890"
+```
+
+```python Python
+import httpx
+
+r = httpx.get(
+    "https://foneclear-web-production.up.railway.app/api/v1/account/credits",
+    headers={"Authorization": "Bearer vn_sk_live_a1b2c3d4e5f67890"},
+)
+print(r.json())
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200 OK
+{
+  "credits_remaining": 482,
+  "plan":              "free",
+  "plan_limits": {
+    "max_numbers_per_job": 1000,
+    "max_api_keys":        5
+  },
+  "usage_this_month": 18
+}
+```
+
+```json 401 Não autenticado
+{
+  "error":   "unauthorized",
+  "message": "Token de acesso ausente ou expirado."
+}
+```
+
+</ResponseExample>

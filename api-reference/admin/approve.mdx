@@ -1,0 +1,111 @@
+---
+title: "Aprovar Job (Admin)"
+description: "Aprova um job pendente, debitando créditos e enfileirando para processamento"
+api: "POST /admin/jobs/{job_id}/approve"
+---
+
+Aprova um job com status `pending_approval`. Ao aprovar:
+
+1. Os créditos estimados são **debitados** da conta do cliente
+2. O job muda para status `queued`
+3. A task Celery é **enfileirada** imediatamente para processamento
+
+Requer `role: admin`.
+
+## Autenticação
+
+Requer autenticação com **role admin**.
+
+## Path Parameters
+
+<ParamField path="job_id" type="string" required>
+  UUID do job a aprovar.
+</ParamField>
+
+## Resposta
+
+<ResponseField name="message" type="string">
+  Confirmação: `"Job aprovado e enfileirado para processamento."`
+</ResponseField>
+
+<ResponseField name="job" type="object">
+  Dados completos do job após aprovação (status = `queued`, `approved_by` e `approved_at` preenchidos).
+</ResponseField>
+
+<RequestExample>
+
+```bash cURL
+curl -X POST https://foneclear-web-production.up.railway.app/api/v1/admin/jobs/f47ac10b-58cc-4372-a567-0e02b2c3d479/approve \
+  -b cookies.txt
+```
+
+```python Python — aprovar todos os jobs pendentes
+import httpx
+
+base = "https://foneclear-web-production.up.railway.app/api/v1"
+# Assumindo sessão autenticada como admin
+with httpx.Client(cookies={"access_token": "..."}) as client:
+    # Listar pendentes
+    r = client.get(f"{base}/admin/jobs", params={"status": "pending_approval"})
+    pending = r.json()["data"]
+
+    for job in pending:
+        resp = client.post(f"{base}/admin/jobs/{job['id']}/approve")
+        print(f"Job {job['id']}: {resp.json()['message']}")
+```
+
+</RequestExample>
+
+<ResponseExample>
+
+```json 200 OK
+{
+  "message": "Job aprovado e enfileirado para processamento.",
+  "job": {
+    "id":               "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "account_id":       "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "status":           "queued",
+    "modules":          ["FORMATO", "TIPO_LINHA", "REASSOCIADO"],
+    "total_numbers":    5000,
+    "processed_count":  0,
+    "estimated_cost":   75.0,
+    "actual_cost":      null,
+    "approved_by":      "adm1n-uuid-00000-000000000000",
+    "approved_at":      "2026-03-11T16:00:00Z",
+    "rejection_reason": null,
+    "created_at":       "2026-03-11T15:30:00Z",
+    "started_at":       null,
+    "completed_at":     null
+  }
+}
+```
+
+```json 400 Job não está pending_approval
+{
+  "error":   "invalid_status",
+  "message": "Job está com status 'queued', não pode ser aprovado."
+}
+```
+
+```json 402 Créditos insuficientes
+{
+  "error":   "insufficient_credits",
+  "message": "Créditos insuficientes. Necessário: 75.0, disponível: 50.0."
+}
+```
+
+```json 404 Job não encontrado
+{
+  "error":   "not_found",
+  "message": "Job não encontrado."
+}
+```
+
+```json 403 Sem permissão
+{
+  "error":   "forbidden",
+  "message": "Permissão insuficiente. Esta operação requer role admin."
+}
+```
+
+</ResponseExample>

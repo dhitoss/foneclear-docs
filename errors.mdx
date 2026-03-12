@@ -1,0 +1,232 @@
+---
+title: "Erros da API"
+description: "Códigos de erro retornados pela API Foneclear e como tratá-los"
+icon: "triangle-alert"
+---
+
+A API Foneclear usa códigos HTTP padrão e retorna um objeto JSON com os campos `error` e `message` em todas as respostas de erro.
+
+## Formato de resposta de erro
+
+```json
+{
+  "error":   "codigo_do_erro",
+  "message": "Descrição legível do erro em português."
+}
+```
+
+Erros de validação de campos retornam adicionalmente o array `details`:
+
+```json
+{
+  "error":   "validation_error",
+  "message": "Erro de validação.",
+  "details": [
+    {"field": "email",    "message": "E-mail inválido."},
+    {"field": "password", "message": "Senha deve ter no mínimo 8 caracteres."}
+  ]
+}
+```
+
+---
+
+## Códigos HTTP e erros correspondentes
+
+### 400 — Bad Request
+
+| Código (`error`) | Descrição | Solução |
+|------------------|-----------|---------|
+| `missing_file` | Campo `file` ou `file_path` não enviado | Inclua o arquivo na requisição |
+| `bad_request` | Content-Type inválido (deve ser `multipart/form-data` ou `application/json`) | Corrija o Content-Type |
+| `invalid_module` | Módulo desconhecido informado | Verifique os [módulos disponíveis](/modules) |
+| `module_not_available` | Módulo ainda não disponível nesta versão | Aguarde disponibilidade |
+| `missing_dependency` | Módulo requer outro módulo que não foi incluído | Adicione o módulo dependente |
+| `exceeds_plan_limit` | Número de linhas excede o limite do plano | Reduza o arquivo ou faça upgrade de plano |
+| `invalid_status` | Valor de status inválido no filtro | Use um dos status válidos |
+| `empty_file` | Nenhum número encontrado no arquivo | Verifique o arquivo e a coluna de telefone |
+| `parse_error` | Erro ao processar o arquivo CSV/XLSX | Verifique o formato e a codificação do arquivo |
+
+**Exemplo:**
+
+```json
+{
+  "error": "exceeds_plan_limit",
+  "message": "Plano free permite até 1.000 números por job.",
+  "details": {
+    "limit":     1000,
+    "requested": 2547
+  }
+}
+```
+
+---
+
+### 401 — Unauthorized
+
+| Código (`error`) | Descrição |
+|------------------|-----------|
+| `unauthorized` | Token ausente, expirado ou inválido |
+| `invalid_credentials` | E-mail ou senha incorretos |
+
+```json
+{
+  "error":   "unauthorized",
+  "message": "Token de acesso ausente ou expirado."
+}
+```
+
+---
+
+### 403 — Forbidden
+
+| Código (`error`) | Descrição |
+|------------------|-----------|
+| `forbidden` | Operação requer role `admin` |
+
+```json
+{
+  "error":   "forbidden",
+  "message": "Permissão insuficiente. Esta operação requer role admin."
+}
+```
+
+---
+
+### 404 — Not Found
+
+| Código (`error`) | Descrição |
+|------------------|-----------|
+| `not_found` | Recurso não encontrado ou não pertence à sua conta |
+
+```json
+{
+  "error":   "not_found",
+  "message": "Job não encontrado."
+}
+```
+
+---
+
+### 409 — Conflict
+
+| Código (`error`) | Descrição |
+|------------------|-----------|
+| `email_exists` | E-mail já cadastrado |
+| `api_key_limit_reached` | Limite de API Keys ativas atingido |
+| `api_key_already_revoked` | Tentativa de revogar uma chave já revogada |
+
+```json
+{
+  "error":   "email_exists",
+  "message": "Este e-mail já está cadastrado."
+}
+```
+
+---
+
+### 422 — Unprocessable Entity
+
+| Código (`error`) | Descrição |
+|------------------|-----------|
+| `validation_error` | Campos obrigatórios ausentes ou inválidos |
+| `phone_column_not_found` | Coluna de telefone informada não existe no arquivo |
+
+```json
+{
+  "error":   "validation_error",
+  "message": "Erro de validação.",
+  "details": [
+    {"field": "name",     "message": "Nome é obrigatório."},
+    {"field": "password", "message": "Senha deve ter no mínimo 8 caracteres."}
+  ]
+}
+```
+
+---
+
+### 423 — Locked
+
+| Código (`error`) | Descrição |
+|------------------|-----------|
+| `account_locked` | Conta bloqueada por excesso de tentativas de login |
+
+```json
+{
+  "error":   "account_locked",
+  "message": "Conta bloqueada até 2026-03-11T14:15:00+00:00."
+}
+```
+
+---
+
+### 402 — Payment Required
+
+| Código (`error`) | Descrição |
+|------------------|-----------|
+| `insufficient_credits` | Créditos insuficientes para o job solicitado |
+
+```json
+{
+  "error":   "insufficient_credits",
+  "message": "Créditos insuficientes. Necessário: 50, disponível: 12.",
+  "details": {
+    "required":   50,
+    "available":  12
+  }
+}
+```
+
+---
+
+### 409 — Cannot Cancel
+
+| Código (`error`) | Descrição |
+|------------------|-----------|
+| `cannot_cancel` | Job não pode ser cancelado no status atual |
+
+```json
+{
+  "error":   "cannot_cancel",
+  "message": "Não é possível cancelar um job com status 'processing'. Apenas jobs com status 'queued' ou 'pending_approval' podem ser cancelados."
+}
+```
+
+---
+
+### 500 — Internal Server Error
+
+| Código (`error`) | Descrição |
+|------------------|-----------|
+| `upload_failed` | Falha ao salvar o arquivo no storage |
+| `internal_error` | Erro interno não esperado |
+
+---
+
+## Tratamento recomendado por código HTTP
+
+```python
+import httpx
+
+def call_api(method, path, **kwargs):
+    r = httpx.request(method, f"https://foneclear-web-production.up.railway.app/api/v1{path}", **kwargs)
+
+    if r.status_code == 401:
+        # Token expirado — tente renovar via /auth/refresh
+        refresh_token()
+        return call_api(method, path, **kwargs)
+
+    if r.status_code == 402:
+        raise Exception("Créditos insuficientes. Recarregue sua conta.")
+
+    if r.status_code == 423:
+        data = r.json()
+        raise Exception(f"Conta bloqueada: {data['message']}")
+
+    if r.status_code == 429:
+        # Rate limit — aguarde e tente novamente
+        import time; time.sleep(60)
+        return call_api(method, path, **kwargs)
+
+    r.raise_for_status()
+    return r.json()
+```
