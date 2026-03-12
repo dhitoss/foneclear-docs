@@ -10,6 +10,7 @@
     "dark": "#0e7490"
   },
   "darkMode": true,
+  "favicon": "/favicon.svg",
   "api": {
     "baseUrl": "https://foneclear-web-production.up.railway.app/api/v1",
     "auth": {
