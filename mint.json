@@ -99,11 +99,11 @@
         "links": [
           {
             "label": "Painel Web",
-            "href": "https://foneclear-web-production.up.railway.app"
+            "url": "https://foneclear-web-production.up.railway.app"
           },
           {
             "label": "Preços",
-            "href": "https://foneclear-web-production.up.railway.app/pricing"
+            "url": "https://foneclear-web-production.up.railway.app/pricing"
           }
         ]
       },
@@ -112,11 +112,11 @@
         "links": [
           {
             "label": "Termos de Uso",
-            "href": "https://foneclear-web-production.up.railway.app/terms"
+            "url": "https://foneclear-web-production.up.railway.app/terms"
           },
           {
             "label": "Privacidade (LGPD)",
-            "href": "https://foneclear-web-production.up.railway.app/privacy"
+            "url": "https://foneclear-web-production.up.railway.app/privacy"
           }
         ]
       },
@@ -125,11 +125,11 @@
         "links": [
           {
             "label": "Twilio Lookup API",
-            "href": "https://www.twilio.com/docs/lookup/v2-api"
+            "url": "https://www.twilio.com/docs/lookup/v2-api"
           },
           {
             "label": "ANATEL Não Perturbe",
-            "href": "https://www.naoperturbe.com.br"
+            "url": "https://www.naoperturbe.com.br"
           }
         ]
       }
