@@ -1,6 +1,6 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "venus",
+  "theme": "mint",
   "name": "Foneclear API",
   "subdomain": "eixodigital",
   "description": "Plataforma modular de validação de números telefônicos brasileiros. Higienize e categorize sua base com precisão.",
