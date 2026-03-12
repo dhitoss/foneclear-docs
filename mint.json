@@ -10,11 +10,6 @@
     "dark": "#0e7490"
   },
   "darkMode": true,
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg",
-    "href": "https://foneclear-web-production.up.railway.app"
-  },
   "favicon": "/favicon.svg",
   "api": {
     "baseUrl": "https://foneclear-web-production.up.railway.app/api/v1",
@@ -36,93 +31,72 @@
       "href": "https://foneclear-web-production.up.railway.app/login"
     }
   },
-  "navigation": {
-    "tabs": [
-      {
-        "tab": "Guias",
-        "icon": "book-open",
-        "groups": [
-          {
-            "group": "Início",
-            "icon": "rocket",
-            "pages": [
-              "introduction",
-              "quickstart",
-              "authentication"
-            ]
-          },
-          {
-            "group": "Conceitos",
-            "icon": "lightbulb",
-            "pages": [
-              "modules",
-              "categories",
-              "limits",
-              "errors"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "API Reference",
-        "icon": "square-terminal",
-        "groups": [
-          {
-            "group": "Autenticação",
-            "icon": "lock",
-            "pages": [
-              "api-reference/auth/register",
-              "api-reference/auth/login",
-              "api-reference/auth/refresh",
-              "api-reference/auth/logout",
-              "api-reference/auth/me",
-              "api-reference/auth/api-keys"
-            ]
-          },
-          {
-            "group": "Jobs",
-            "icon": "list-check",
-            "pages": [
-              "api-reference/jobs/create",
-              "api-reference/jobs/list",
-              "api-reference/jobs/get",
-              "api-reference/jobs/validations",
-              "api-reference/jobs/cancel",
-              "api-reference/jobs/download"
-            ]
-          },
-          {
-            "group": "Conta",
-            "icon": "user",
-            "pages": [
-              "api-reference/jobs/credits"
-            ]
-          },
-          {
-            "group": "Admin",
-            "icon": "shield",
-            "pages": [
-              "api-reference/admin/jobs",
-              "api-reference/admin/approve",
-              "api-reference/admin/reject"
-            ]
-          },
-          {
-            "group": "Webhooks",
-            "icon": "webhook",
-            "pages": [
-              "api-reference/webhooks/overview"
-            ]
-          }
-        ]
-      }
-    ]
-  },
+  "navigation": [
+    {
+      "group": "Início",
+      "pages": [
+        "introduction",
+        "quickstart",
+        "authentication"
+      ]
+    },
+    {
+      "group": "Conceitos",
+      "pages": [
+        "modules",
+        "categories",
+        "limits",
+        "errors"
+      ]
+    },
+    {
+      "group": "Autenticação",
+      "pages": [
+        "api-reference/auth/register",
+        "api-reference/auth/login",
+        "api-reference/auth/refresh",
+        "api-reference/auth/logout",
+        "api-reference/auth/me",
+        "api-reference/auth/api-keys"
+      ]
+    },
+    {
+      "group": "Jobs",
+      "pages": [
+        "api-reference/jobs/create",
+        "api-reference/jobs/list",
+        "api-reference/jobs/get",
+        "api-reference/jobs/validations",
+        "api-reference/jobs/cancel",
+        "api-reference/jobs/download"
+      ]
+    },
+    {
+      "group": "Conta",
+      "pages": [
+        "api-reference/jobs/credits"
+      ]
+    },
+    {
+      "group": "Admin",
+      "pages": [
+        "api-reference/admin/jobs",
+        "api-reference/admin/approve",
+        "api-reference/admin/reject"
+      ]
+    },
+    {
+      "group": "Webhooks",
+      "pages": [
+        "api-reference/webhooks/overview"
+      ]
+    }
+  ],
   "footer": {
     "links": [
       {
         "header": "Produto",
-        "items": [
+        "links": [
           {
             "label": "Painel Web",
             "href": "https://foneclear-web-production.up.railway.app"
@@ -135,7 +109,7 @@
       },
       {
         "header": "Legal",
-        "items": [
+        "links": [
           {
             "label": "Termos de Uso",
             "href": "https://foneclear-web-production.up.railway.app/terms"
@@ -148,7 +122,7 @@
       },
       {
         "header": "Referências",
-        "items": [
+        "links": [
           {
             "label": "Twilio Lookup API",
             "href": "https://www.twilio.com/docs/lookup/v2-api"
